@@ -31,7 +31,7 @@ import { databaseEntities } from './database/entities';
             ssl: { rejectUnauthorized: false },
             entities: databaseEntities,
             synchronize: !isProduction,
-            logging: false,
+            logging: true,
           };
         }
         return {
@@ -43,7 +43,7 @@ import { databaseEntities } from './database/entities';
           database: cfg.get<string>('DB_NAME', 'owner'),
           entities: databaseEntities,
           synchronize: !isProduction,
-          logging: false,
+          logging: true,
         };
       },
     }),
