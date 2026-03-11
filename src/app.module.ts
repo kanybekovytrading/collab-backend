@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { TypeOrmModule } from '@nestjs/typeorm';
+import { TypeOrmModule, TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { TasksModule } from './tasks/tasks.module';
@@ -21,17 +21,31 @@ import { databaseEntities } from './database/entities';
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => ({
-        type: 'postgres',
-        host: cfg.get('DB_HOST', 'localhost'),
-        port: +cfg.get('DB_PORT', 5432),
-        username: cfg.get('DB_USERNAME', 'postgres'),
-        password: cfg.get('DB_PASSWORD', 'postgres'),
-        database: cfg.get('DB_NAME', 'collab'),
-        entities: databaseEntities,
-        synchronize: true, // use migrations in production
-        logging: false,
-      }),
+      useFactory: (cfg: ConfigService): TypeOrmModuleOptions => {
+        const databaseUrl = cfg.get<string>('DATABASE_URL');
+        const isProduction = cfg.get<string>('NODE_ENV') === 'production';
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            ssl: { rejectUnauthorized: false },
+            entities: databaseEntities,
+            synchronize: !isProduction,
+            logging: false,
+          };
+        }
+        return {
+          type: 'postgres',
+          host: cfg.get<string>('DB_HOST', 'localhost'),
+          port: +cfg.get<string>('DB_PORT', '4444'),
+          username: cfg.get<string>('DB_USERNAME', 'postgres'),
+          password: cfg.get<string>('DB_PASSWORD', 'postgres'),
+          database: cfg.get<string>('DB_NAME', 'owner'),
+          entities: databaseEntities,
+          synchronize: !isProduction,
+          logging: false,
+        };
+      },
     }),
     AuthModule,
     UsersModule,

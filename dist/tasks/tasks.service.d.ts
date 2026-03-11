@@ -1,0 +1,110 @@
+import { Repository } from 'typeorm';
+import { Task, TaskStatus } from '../database/entities/task.entity';
+import { BrandProfile } from '../database/entities/brand-profile.entity';
+import { User } from '../database/entities/user.entity';
+export declare class TasksService {
+    private taskRepo;
+    private brandRepo;
+    constructor(taskRepo: Repository<Task>, brandRepo: Repository<BrandProfile>);
+    create(user: User, dto: any): Promise<{
+        id: string;
+        title: string;
+        description: string;
+        taskType: import("../database/entities/task.entity").TaskType;
+        coverImageUrl: string;
+        city: string;
+        online: boolean;
+        deadlineDays: number;
+        price: number;
+        priceDescription: string;
+        status: TaskStatus;
+        reactionsCount: number;
+        acceptsUgc: boolean;
+        acceptsAi: boolean;
+        genderFilter: string[];
+        categories: string[];
+        createdAt: Date;
+        brand: {
+            id: string;
+            fullName: string;
+            companyName: any;
+            avatarUrl: string;
+            verified: boolean;
+            rating: any;
+        };
+    }>;
+    findAll(filters: any): Promise<{
+        content: any[];
+        page: number;
+        size: number;
+        totalElements: number;
+        totalPages: number;
+        first: boolean;
+        last: boolean;
+    }>;
+    findOne(id: string): Promise<{
+        id: string;
+        title: string;
+        description: string;
+        taskType: import("../database/entities/task.entity").TaskType;
+        coverImageUrl: string;
+        city: string;
+        online: boolean;
+        deadlineDays: number;
+        price: number;
+        priceDescription: string;
+        status: TaskStatus;
+        reactionsCount: number;
+        acceptsUgc: boolean;
+        acceptsAi: boolean;
+        genderFilter: string[];
+        categories: string[];
+        createdAt: Date;
+        brand: {
+            id: string;
+            fullName: string;
+            companyName: any;
+            avatarUrl: string;
+            verified: boolean;
+            rating: any;
+        };
+    }>;
+    findMyTasks(userId: string, page?: number, size?: number): Promise<{
+        content: any[];
+        page: number;
+        size: number;
+        totalElements: number;
+        totalPages: number;
+        first: boolean;
+        last: boolean;
+    }>;
+    delete(id: string, user: User): Promise<void>;
+    format(t: Task): {
+        id: string;
+        title: string;
+        description: string;
+        taskType: import("../database/entities/task.entity").TaskType;
+        coverImageUrl: string;
+        city: string;
+        online: boolean;
+        deadlineDays: number;
+        price: number;
+        priceDescription: string;
+        status: TaskStatus;
+        reactionsCount: number;
+        acceptsUgc: boolean;
+        acceptsAi: boolean;
+        genderFilter: string[];
+        categories: string[];
+        createdAt: Date;
+        brand: {
+            id: string;
+            fullName: string;
+            companyName: any;
+            avatarUrl: string;
+            verified: boolean;
+            rating: any;
+        };
+    };
+    private paginate;
+}

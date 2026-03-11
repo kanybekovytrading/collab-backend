@@ -1,0 +1,11 @@
+import { User } from './user.entity';
+import { BloggerProfile } from './blogger-profile.entity';
+import { BrandProfile } from './brand-profile.entity';
+import { Task } from './task.entity';
+import { Application } from './application.entity';
+import { ChatMessage } from './chat-message.entity';
+import { Review } from './review.entity';
+import { PortfolioItem } from './portfolio-item.entity';
+import { CompletionRecord } from './completion-record.entity';
+export declare const databaseEntities: (typeof User | typeof PortfolioItem | typeof BloggerProfile | typeof BrandProfile | typeof Task | typeof Application | typeof CompletionRecord | typeof ChatMessage | typeof Review)[];
+export { User, BloggerProfile, BrandProfile, Task, Application, ChatMessage, Review, PortfolioItem, CompletionRecord, };
