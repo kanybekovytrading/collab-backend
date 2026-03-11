@@ -1,0 +1,17 @@
+import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ApplicationsController } from './applications.controller';
+import { ApplicationsService } from './applications.service';
+import { Application } from '../database/entities/application.entity';
+import { Task } from '../database/entities/task.entity';
+import { BloggerProfile } from '../database/entities/blogger-profile.entity';
+import { BrandProfile } from '../database/entities/brand-profile.entity';
+import { CompletionRecord } from '../database/entities/completion-record.entity';
+
+@Module({
+  imports: [TypeOrmModule.forFeature([Application, Task, BloggerProfile, BrandProfile, CompletionRecord])],
+  controllers: [ApplicationsController],
+  providers: [ApplicationsService],
+  exports: [ApplicationsService],
+})
+export class ApplicationsModule {}
