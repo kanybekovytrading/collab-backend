@@ -19,7 +19,6 @@ export class BloggersService {
     const qb = this.bloggerRepo
       .createQueryBuilder('b')
       .leftJoinAndSelect('b.user', 'u')
-      .leftJoinAndSelect('b.portfolioItems', 'pi')
       .where('u.active = true');
 
     if (country) qb.andWhere('u.country = :country', { country });
@@ -34,14 +33,15 @@ export class BloggersService {
     if (search) qb.andWhere('(u.fullName ILIKE :s OR b.bio ILIKE :s)', { s: `%${search}%` });
     if (verifiedOnly) qb.andWhere('u.verified = true');
 
-    const sortMap: Record<string, string> = {
-      rating: 'b.rating DESC',
-      price_asc: 'b.minPrice ASC',
-      price_desc: 'b.minPrice DESC',
-      tasks: 'b.completedTasksCount DESC',
-      reviews: 'b.reviewsCount DESC',
+    const sortMap: Record<string, { col: string; dir: 'ASC' | 'DESC' }> = {
+      rating: { col: 'b.rating', dir: 'DESC' },
+      price_asc: { col: 'b.minPrice', dir: 'ASC' },
+      price_desc: { col: 'b.minPrice', dir: 'DESC' },
+      tasks: { col: 'b.completedTasksCount', dir: 'DESC' },
+      reviews: { col: 'b.reviewsCount', dir: 'DESC' },
     };
-    qb.orderBy(sortMap[sortBy] || 'b.rating DESC');
+    const sort = sortMap[sortBy] || { col: 'b.rating', dir: 'DESC' };
+    qb.orderBy(sort.col, sort.dir);
     qb.skip(page * size).take(size);
 
     const [items, total] = await qb.getManyAndCount();
