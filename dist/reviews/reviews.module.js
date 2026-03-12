@@ -21,7 +21,15 @@ let ReviewsModule = class ReviewsModule {
 exports.ReviewsModule = ReviewsModule;
 exports.ReviewsModule = ReviewsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([review_entity_1.Review, application_entity_1.Application, completion_record_entity_1.CompletionRecord, blogger_profile_entity_1.BloggerProfile, brand_profile_entity_1.BrandProfile])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([
+                review_entity_1.Review,
+                application_entity_1.Application,
+                completion_record_entity_1.CompletionRecord,
+                blogger_profile_entity_1.BloggerProfile,
+                brand_profile_entity_1.BrandProfile,
+            ]),
+        ],
         controllers: [reviews_controller_1.ReviewsController],
         providers: [reviews_service_1.ReviewsService],
     })

@@ -16,23 +16,57 @@ exports.MediaController = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
+const crypto_1 = require("crypto");
+const config_1 = require("@nestjs/config");
 const media_service_1 = require("./media.service");
 const api_response_1 = require("../common/dto/api-response");
 let MediaController = class MediaController {
     mediaService;
-    constructor(mediaService) {
+    cfg;
+    constructor(mediaService, cfg) {
         this.mediaService = mediaService;
+        this.cfg = cfg;
     }
     async upload(type, entityId, file) {
+        if (!type)
+            throw new common_1.BadRequestException('type is required');
+        if (!entityId)
+            throw new common_1.BadRequestException('entityId is required');
+        if (!file)
+            throw new common_1.BadRequestException('file is required');
         return (0, api_response_1.apiResponse)(await this.mediaService.upload(type, entityId, file));
     }
-    async presigned(objectKey) {
-        return (0, api_response_1.apiResponse)(await this.mediaService.getPresignedUrl(objectKey));
+    async signedUrl(fileId, resourceType = 'image') {
+        if (!fileId)
+            throw new common_1.BadRequestException('fileId is required');
+        return (0, api_response_1.apiResponse)(this.mediaService.getSignedUrl(fileId, resourceType));
+    }
+    async cloudinaryWebhook(body, signature, timestamp) {
+        this.verifyWebhookSignature(JSON.stringify(body), timestamp, signature);
+        if (body.notification_type === 'eager' && body.public_id) {
+            const data = this.mediaService.handleVideoReady(body.public_id);
+            console.log(`Video ready: ${data.fileId} → ${data.hlsUrl}`);
+        }
+        return { received: true };
+    }
+    verifyWebhookSignature(body, timestamp, signature) {
+        const apiSecret = this.cfg.get('CLOUDINARY_API_SECRET');
+        const expected = (0, crypto_1.createHmac)('sha256', apiSecret)
+            .update(body + timestamp)
+            .digest('hex');
+        if (expected !== signature) {
+            throw new common_1.BadRequestException('Invalid webhook signature');
+        }
+        const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
+        if (age > 300) {
+            throw new common_1.BadRequestException('Webhook timestamp expired');
+        }
     }
 };
 exports.MediaController = MediaController;
 __decorate([
     (0, common_1.Post)('upload'),
+    (0, swagger_1.ApiBearerAuth)(),
     (0, swagger_1.ApiOperation)({ summary: 'Загрузить файл' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
@@ -44,17 +78,29 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MediaController.prototype, "upload", null);
 __decorate([
-    (0, common_1.Get)('presigned'),
-    (0, swagger_1.ApiOperation)({ summary: 'Получить свежую ссылку на файл' }),
-    __param(0, (0, common_1.Query)('objectKey')),
+    (0, common_1.Get)('signed-url'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Получить подписанную ссылку на файл' }),
+    __param(0, (0, common_1.Query)('fileId')),
+    __param(1, (0, common_1.Query)('resourceType')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)
-], MediaController.prototype, "presigned", null);
+], MediaController.prototype, "signedUrl", null);
+__decorate([
+    (0, common_1.Post)('webhook'),
+    (0, swagger_1.ApiExcludeEndpoint)(),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, common_1.Headers)('x-cld-signature')),
+    __param(2, (0, common_1.Headers)('x-cld-timestamp')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], MediaController.prototype, "cloudinaryWebhook", null);
 exports.MediaController = MediaController = __decorate([
     (0, swagger_1.ApiTags)('Media'),
-    (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('media'),
-    __metadata("design:paramtypes", [media_service_1.MediaService])
+    __metadata("design:paramtypes", [media_service_1.MediaService,
+        config_1.ConfigService])
 ], MediaController);
 //# sourceMappingURL=media.controller.js.map

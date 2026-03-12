@@ -50,12 +50,28 @@ export class MediaController {
   @Get('signed-url')
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Получить подписанную ссылку на файл' })
-  async signedUrl(
+  signedUrl(
     @Query('fileId') fileId: string,
     @Query('resourceType') resourceType: 'image' | 'video' = 'image',
   ) {
     if (!fileId) throw new BadRequestException('fileId is required');
     return apiResponse(this.mediaService.getSignedUrl(fileId, resourceType));
+  }
+
+  // Добавить в MediaController (media.controller.ts)
+
+  @Get('sign')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Получить подпись для прямой загрузки на Cloudinary',
+  })
+  getUploadSignature(
+    @Query('type') type: string,
+    @Query('entityId') entityId: string,
+  ) {
+    if (!type) throw new BadRequestException('type is required');
+    if (!entityId) throw new BadRequestException('entityId is required');
+    return apiResponse(this.mediaService.getUploadSignature(type, entityId));
   }
 
   /**
@@ -65,7 +81,7 @@ export class MediaController {
    */
   @Post('webhook')
   @ApiExcludeEndpoint()
-  async cloudinaryWebhook(
+  cloudinaryWebhook(
     @Body() body: any,
     @Headers('x-cld-signature') signature: string,
     @Headers('x-cld-timestamp') timestamp: string,

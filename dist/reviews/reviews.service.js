@@ -62,14 +62,19 @@ let ReviewsService = class ReviewsService {
             throw new common_1.NotFoundException('Application not found');
         if (app.status !== application_entity_1.ApplicationStatus.COMPLETED)
             throw new common_1.BadRequestException('Collaboration not completed');
-        const completion = await this.completionRepo.findOne({ where: { application: { id: app.id } } });
+        const completion = await this.completionRepo.findOne({
+            where: { application: { id: app.id } },
+        });
         if (!completion)
             throw new common_1.BadRequestException('No completion record');
         const isParticipant = app.blogger.id === author.id || app.task.brand.id === author.id;
         if (!isParticipant)
             throw new common_1.ForbiddenException('Not a participant');
         const existing = await this.reviewRepo.findOne({
-            where: { author: { id: author.id }, application: { id: dto.applicationId } },
+            where: {
+                author: { id: author.id },
+                application: { id: dto.applicationId },
+            },
         });
         if (existing)
             throw new common_1.ConflictException('Already reviewed');
@@ -95,8 +100,10 @@ let ReviewsService = class ReviewsService {
             take: size,
         });
         return {
-            content: items.map(r => this.format(r)),
-            page, size, totalElements: total,
+            content: items.map((r) => this.format(r)),
+            page,
+            size,
+            totalElements: total,
             totalPages: Math.ceil(total / size),
             first: page === 0,
             last: (page + 1) * size >= total,
@@ -129,7 +136,13 @@ let ReviewsService = class ReviewsService {
             id: r.id,
             rating: r.rating,
             comment: r.comment,
-            author: r.author ? { id: r.author.id, fullName: r.author.fullName, avatarUrl: r.author.avatarUrl } : null,
+            author: r.author
+                ? {
+                    id: r.author.id,
+                    fullName: r.author.fullName,
+                    avatarUrl: r.author.avatarUrl,
+                }
+                : null,
             createdAt: r.createdAt,
         };
     }

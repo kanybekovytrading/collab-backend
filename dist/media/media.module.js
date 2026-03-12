@@ -17,11 +17,10 @@ let MediaModule = class MediaModule {
 exports.MediaModule = MediaModule;
 exports.MediaModule = MediaModule = __decorate([
     (0, common_1.Module)({
-        imports: [
-            platform_express_1.MulterModule.register({ storage: (0, multer_1.memoryStorage)() }),
-        ],
+        imports: [platform_express_1.MulterModule.register({ storage: (0, multer_1.memoryStorage)() })],
         controllers: [media_controller_1.MediaController],
         providers: [media_service_1.MediaService],
+        exports: [media_service_1.MediaService],
     })
 ], MediaModule);
 //# sourceMappingURL=media.module.js.map

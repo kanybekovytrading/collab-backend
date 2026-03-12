@@ -93,6 +93,48 @@ export class MediaService {
     };
   }
 
+  /**
+   * Генерирует подпись для прямой загрузки с фронта на Cloudinary.
+   * Фронт получает подпись и загружает файл напрямую — минуя Railway.
+   */
+  getUploadSignature(type: string, entityId: string) {
+    const typeConfig = ALLOWED_TYPES[type];
+    if (!typeConfig) throw new BadRequestException('Invalid upload type');
+
+    const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+    const mightBeVideo = ['PORTFOLIO', 'WORK_SUBMISSION'].includes(type);
+
+    const paramsToSign: Record<string, any> = {
+      folder,
+      timestamp,
+      ...(mightBeVideo && {
+        eager: 'sp_full_hd/m3u8',
+        eager_async: 'true',
+        eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL') ?? '',
+      }),
+    };
+
+    // Cloudinary SDK сам правильно сортирует параметры и генерирует подпись
+    const signature = cloudinary.utils.api_sign_request(
+      paramsToSign,
+      this.cfg.get('CLOUDINARY_API_SECRET'),
+    );
+
+    return {
+      signature,
+      timestamp,
+      apiKey: this.cfg.get('CLOUDINARY_API_KEY'),
+      cloudName: this.cfg.get('CLOUDINARY_CLOUD_NAME'),
+      folder,
+      eager: mightBeVideo ? 'sp_full_hd/m3u8' : undefined,
+      eagerAsync: mightBeVideo ? true : undefined,
+      eagerNotificationUrl: mightBeVideo
+        ? this.cfg.get('CLOUDINARY_WEBHOOK_URL')
+        : undefined,
+    };
+  }
+
   handleVideoReady(publicId: string): { fileId: string; hlsUrl: string } {
     const hlsUrl = cloudinary.url(publicId, {
       resource_type: 'video',

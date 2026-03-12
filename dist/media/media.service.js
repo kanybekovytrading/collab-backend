@@ -19,8 +19,14 @@ const ALLOWED_TYPES = {
     TASK_COVER: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
     BRAND_LOGO: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
     PORTFOLIO: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
-    WORK_SUBMISSION: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
-    CHAT_ATTACHMENT: { mimeTypes: ['image/', 'video/', 'application/pdf'], maxBytes: 50 * 1024 * 1024 },
+    WORK_SUBMISSION: {
+        mimeTypes: ['image/', 'video/'],
+        maxBytes: 500 * 1024 * 1024,
+    },
+    CHAT_ATTACHMENT: {
+        mimeTypes: ['image/', 'video/'],
+        maxBytes: 50 * 1024 * 1024,
+    },
 };
 const FOLDERS = {
     USER_AVATAR: 'avatars',
@@ -44,34 +50,81 @@ let MediaService = class MediaService {
     async upload(type, entityId, file) {
         const typeConfig = ALLOWED_TYPES[type];
         if (!typeConfig)
-            throw new common_1.BadRequestException('Invalid file type');
-        const isAllowedMime = typeConfig.mimeTypes.some(m => file.mimetype.startsWith(m));
+            throw new common_1.BadRequestException('Invalid upload type');
+        const isAllowedMime = typeConfig.mimeTypes.some((m) => file.mimetype.startsWith(m));
         if (!isAllowedMime)
             throw new common_1.BadRequestException(`File type ${file.mimetype} not allowed for ${type}`);
         if (file.size > typeConfig.maxBytes)
             throw new common_1.BadRequestException('File too large');
         const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
         const isVideo = file.mimetype.startsWith('video/');
-        const resourceType = isVideo ? 'video' : file.mimetype === 'application/pdf' ? 'raw' : 'image';
+        const resourceType = isVideo ? 'video' : 'image';
         const result = await this.uploadToCloudinary(file.buffer, {
             folder,
             resource_type: resourceType,
-            transformation: resourceType !== 'raw'
-                ? [{ quality: 'auto', fetch_format: 'auto' }]
-                : undefined,
+            ...(isVideo && {
+                eager: [{ streaming_profile: 'full_hd', format: 'm3u8' }],
+                eager_async: true,
+                eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL'),
+            }),
+            ...(!isVideo && {
+                transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+            }),
         });
         return {
             fileId: result.public_id,
-            objectKey: result.public_id,
-            presignedUrl: result.secure_url,
+            url: result.secure_url,
+            hlsUrl: null,
+            status: isVideo ? 'processing' : 'ready',
             contentType: file.mimetype,
             sizeBytes: file.size,
         };
     }
-    async getPresignedUrl(objectKey) {
-        return cloudinary_1.v2.url(objectKey, {
+    getUploadSignature(type, entityId) {
+        const typeConfig = ALLOWED_TYPES[type];
+        if (!typeConfig)
+            throw new common_1.BadRequestException('Invalid upload type');
+        const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+        const mightBeVideo = ['PORTFOLIO', 'WORK_SUBMISSION'].includes(type);
+        const paramsToSign = {
+            folder,
+            timestamp,
+            ...(mightBeVideo && {
+                eager: 'sp_full_hd/m3u8',
+                eager_async: 'true',
+                eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL') ?? '',
+            }),
+        };
+        const signature = cloudinary_1.v2.utils.api_sign_request(paramsToSign, this.cfg.get('CLOUDINARY_API_SECRET'));
+        return {
+            signature,
+            timestamp,
+            apiKey: this.cfg.get('CLOUDINARY_API_KEY'),
+            cloudName: this.cfg.get('CLOUDINARY_CLOUD_NAME'),
+            folder,
+            eager: mightBeVideo ? 'sp_full_hd/m3u8' : undefined,
+            eagerAsync: mightBeVideo ? true : undefined,
+            eagerNotificationUrl: mightBeVideo
+                ? this.cfg.get('CLOUDINARY_WEBHOOK_URL')
+                : undefined,
+        };
+    }
+    handleVideoReady(publicId) {
+        const hlsUrl = cloudinary_1.v2.url(publicId, {
+            resource_type: 'video',
             secure: true,
-            resource_type: 'auto',
+            streaming_profile: 'full_hd',
+            format: 'm3u8',
+        });
+        return { fileId: publicId, hlsUrl };
+    }
+    getSignedUrl(publicId, resourceType = 'image') {
+        return cloudinary_1.v2.url(publicId, {
+            secure: true,
+            resource_type: resourceType,
+            sign_url: true,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
         });
     }
     uploadToCloudinary(buffer, options) {
