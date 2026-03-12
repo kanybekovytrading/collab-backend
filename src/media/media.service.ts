@@ -47,15 +47,29 @@ export class MediaService {
     const result = await this.uploadToCloudinary(file.buffer, {
       folder,
       resource_type: resourceType,
-      transformation: resourceType !== 'raw'
-        ? [{ quality: 'auto', fetch_format: 'auto' }]
-        : undefined,
+      ...(isVideo && {
+        eager: [{ streaming_profile: 'full_hd', format: 'm3u8' }],
+        eager_async: true,
+      }),
+      ...(!isVideo && resourceType !== 'raw' && {
+        transformation: [{ quality: 'auto', fetch_format: 'auto' }],
+      }),
     });
+
+    const hlsUrl = isVideo
+      ? cloudinary.url(result.public_id, {
+          resource_type: 'video',
+          secure: true,
+          streaming_profile: 'full_hd',
+          format: 'm3u8',
+        })
+      : undefined;
 
     return {
       fileId: result.public_id,
       objectKey: result.public_id,
-      presignedUrl: result.secure_url,
+      url: result.secure_url,
+      hlsUrl,
       contentType: file.mimetype,
       sizeBytes: file.size,
     };
