@@ -57,13 +57,19 @@ export class BloggersService {
   }
 
   async findOne(userId: string) {
-    const b = await this.bloggerRepo.findOne({ where: { user: { id: userId } } });
+    const b = await this.bloggerRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user', 'portfolioItems'],
+    });
     if (!b) throw new NotFoundException('Blogger not found');
     return this.format(b);
   }
 
   async update(userId: string, dto: any) {
-    const b = await this.bloggerRepo.findOne({ where: { user: { id: userId } } });
+    const b = await this.bloggerRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
     if (!b) throw new NotFoundException('Blogger profile not found');
     Object.assign(b, dto);
     await this.bloggerRepo.save(b);

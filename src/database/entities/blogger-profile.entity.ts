@@ -16,7 +16,7 @@ export class BloggerProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @OneToOne(() => User, { eager: true })
+  @OneToOne(() => User)
   @JoinColumn()
   user: User;
 
@@ -47,7 +47,7 @@ export class BloggerProfile {
   @Column({ nullable: true })
   age: number;
 
-  @OneToMany(() => PortfolioItem, (item) => item.blogger, { eager: true })
+  @OneToMany(() => PortfolioItem, (item) => item.blogger)
   portfolioItems: PortfolioItem[];
 
   @CreateDateColumn()
