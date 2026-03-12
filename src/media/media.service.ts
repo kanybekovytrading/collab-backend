@@ -35,7 +35,7 @@ export class MediaService {
   private bucket: string;
 
   constructor(
-    private cfg: ConfigService,
+    cfg: ConfigService,
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {
     this.bucket = cfg.get('MINIO_BUCKET', 'collab');
@@ -75,21 +75,17 @@ export class MediaService {
     const presignedUrl = await getSignedUrl(
       this.s3,
       new GetObjectCommand({ Bucket: this.bucket, Key: objectKey }),
-      { expiresIn: 3600 },
+      { expiresIn: 604800 }, // 7 days
     );
 
-    const endpoint = this.cfg.get('MINIO_ENDPOINT', 'http://localhost:9000');
-    const publicUrl = `${endpoint}/${this.bucket}/${objectKey}`;
-
     if (type === 'USER_AVATAR' || type === 'BRAND_LOGO') {
-      await this.userRepo.update(entityId, { avatarUrl: publicUrl });
+      await this.userRepo.update(entityId, { avatarUrl: presignedUrl });
     }
 
     return {
       fileId,
       objectKey,
-      publicUrl,
-      presignedUrl,
+      url: presignedUrl,
       contentType: file.mimetype,
       sizeBytes: file.size,
     };
