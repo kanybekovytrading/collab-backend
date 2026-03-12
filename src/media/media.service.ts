@@ -1,5 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import {
   S3Client,
   PutObjectCommand,
@@ -7,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
+import { User } from '../database/entities/user.entity';
 
 const ALLOWED_TYPES: Record<string, { mimeTypes: string[]; maxBytes: number }> = {
   USER_AVATAR: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
@@ -31,7 +34,10 @@ export class MediaService {
   private s3: S3Client;
   private bucket: string;
 
-  constructor(private cfg: ConfigService) {
+  constructor(
+    private cfg: ConfigService,
+    @InjectRepository(User) private userRepo: Repository<User>,
+  ) {
     this.bucket = cfg.get('MINIO_BUCKET', 'collab');
     this.s3 = new S3Client({
       endpoint: cfg.get('MINIO_ENDPOINT', 'http://localhost:9000'),
@@ -72,9 +78,17 @@ export class MediaService {
       { expiresIn: 3600 },
     );
 
+    const endpoint = this.cfg.get('MINIO_ENDPOINT', 'http://localhost:9000');
+    const publicUrl = `${endpoint}/${this.bucket}/${objectKey}`;
+
+    if (type === 'USER_AVATAR' || type === 'BRAND_LOGO') {
+      await this.userRepo.update(entityId, { avatarUrl: publicUrl });
+    }
+
     return {
       fileId,
       objectKey,
+      publicUrl,
       presignedUrl,
       contentType: file.mimetype,
       sizeBytes: file.size,
