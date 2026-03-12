@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ReviewsService } from './reviews.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -19,7 +27,9 @@ export class ReviewsController {
     @Query('page') page = 0,
     @Query('size') size = 20,
   ) {
-    return apiResponse(await this.reviewsService.getByUser(userId, +page, +size));
+    return apiResponse(
+      await this.reviewsService.getByUser(userId, +page, +size),
+    );
   }
 
   @ApiBearerAuth()
@@ -29,13 +39,18 @@ export class ReviewsController {
     @CurrentUser() user: User,
     @Param('applicationId', ParseUUIDPipe) applicationId: string,
   ) {
-    return apiResponse(await this.reviewsService.canReview(user, applicationId));
+    return apiResponse(
+      await this.reviewsService.canReview(user, applicationId),
+    );
   }
 
   @ApiBearerAuth()
   @Post()
   @ApiOperation({ summary: 'Оставить отзыв' })
   async create(@CurrentUser() user: User, @Body() dto: any) {
-    return apiResponse(await this.reviewsService.create(user, dto), 'Review saved');
+    return apiResponse(
+      await this.reviewsService.create(user, dto),
+      'Review saved',
+    );
   }
 }

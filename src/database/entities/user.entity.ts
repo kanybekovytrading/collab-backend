@@ -4,8 +4,6 @@ import {
   Column,
   CreateDateColumn,
   UpdateDateColumn,
-  OneToOne,
-  OneToMany,
 } from 'typeorm';
 
 export enum Role {

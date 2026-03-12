@@ -8,7 +8,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Review } from '../database/entities/review.entity';
-import { Application, ApplicationStatus } from '../database/entities/application.entity';
+import {
+  Application,
+  ApplicationStatus,
+} from '../database/entities/application.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
@@ -19,8 +22,10 @@ export class ReviewsService {
   constructor(
     @InjectRepository(Review) private reviewRepo: Repository<Review>,
     @InjectRepository(Application) private appRepo: Repository<Application>,
-    @InjectRepository(CompletionRecord) private completionRepo: Repository<CompletionRecord>,
-    @InjectRepository(BloggerProfile) private bloggerRepo: Repository<BloggerProfile>,
+    @InjectRepository(CompletionRecord)
+    private completionRepo: Repository<CompletionRecord>,
+    @InjectRepository(BloggerProfile)
+    private bloggerRepo: Repository<BloggerProfile>,
     @InjectRepository(BrandProfile) private brandRepo: Repository<BrandProfile>,
   ) {}
 
@@ -31,9 +36,12 @@ export class ReviewsService {
     });
     if (!app) return { canReview: false, reason: 'Application not found' };
 
-    const isParticipant = app.blogger.id === user.id || app.task.brand.id === user.id;
-    if (!isParticipant) return { canReview: false, reason: 'Not a participant' };
-    if (app.status !== ApplicationStatus.COMPLETED) return { canReview: false, reason: 'Collaboration not completed' };
+    const isParticipant =
+      app.blogger.id === user.id || app.task.brand.id === user.id;
+    if (!isParticipant)
+      return { canReview: false, reason: 'Not a participant' };
+    if (app.status !== ApplicationStatus.COMPLETED)
+      return { canReview: false, reason: 'Collaboration not completed' };
 
     const existing = await this.reviewRepo.findOne({
       where: { author: { id: user.id }, application: { id: applicationId } },
@@ -43,27 +51,38 @@ export class ReviewsService {
     return { canReview: true, reason: null };
   }
 
-  async create(author: User, dto: { applicationId: string; rating: number; comment?: string }) {
+  async create(
+    author: User,
+    dto: { applicationId: string; rating: number; comment?: string },
+  ) {
     const app = await this.appRepo.findOne({
       where: { id: dto.applicationId },
       relations: ['blogger', 'task', 'task.brand'],
     });
     if (!app) throw new NotFoundException('Application not found');
-    if (app.status !== ApplicationStatus.COMPLETED) throw new BadRequestException('Collaboration not completed');
+    if (app.status !== ApplicationStatus.COMPLETED)
+      throw new BadRequestException('Collaboration not completed');
 
-    const completion = await this.completionRepo.findOne({ where: { application: { id: app.id } } });
+    const completion = await this.completionRepo.findOne({
+      where: { application: { id: app.id } },
+    });
     if (!completion) throw new BadRequestException('No completion record');
 
-    const isParticipant = app.blogger.id === author.id || app.task.brand.id === author.id;
+    const isParticipant =
+      app.blogger.id === author.id || app.task.brand.id === author.id;
     if (!isParticipant) throw new ForbiddenException('Not a participant');
 
     const existing = await this.reviewRepo.findOne({
-      where: { author: { id: author.id }, application: { id: dto.applicationId } },
+      where: {
+        author: { id: author.id },
+        application: { id: dto.applicationId },
+      },
     });
     if (existing) throw new ConflictException('Already reviewed');
 
     // Brand reviews blogger, blogger reviews brand
-    const targetId = author.id === app.blogger.id ? app.task.brand.id : app.blogger.id;
+    const targetId =
+      author.id === app.blogger.id ? app.task.brand.id : app.blogger.id;
     const target = { id: targetId } as User;
 
     const review = this.reviewRepo.create({
@@ -90,8 +109,10 @@ export class ReviewsService {
       take: size,
     });
     return {
-      content: items.map(r => this.format(r)),
-      page, size, totalElements: total,
+      content: items.map((r) => this.format(r)),
+      page,
+      size,
+      totalElements: total,
       totalPages: Math.ceil(total / size),
       first: page === 0,
       last: (page + 1) * size >= total,
@@ -130,7 +151,13 @@ export class ReviewsService {
       id: r.id,
       rating: r.rating,
       comment: r.comment,
-      author: r.author ? { id: r.author.id, fullName: r.author.fullName, avatarUrl: r.author.avatarUrl } : null,
+      author: r.author
+        ? {
+            id: r.author.id,
+            fullName: r.author.fullName,
+            avatarUrl: r.author.avatarUrl,
+          }
+        : null,
       createdAt: r.createdAt,
     };
   }

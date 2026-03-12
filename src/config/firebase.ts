@@ -4,10 +4,12 @@ let initialized = false;
 
 export function initFirebase() {
   if (initialized) return;
-  
+
   const projectId = process.env.FIREBASE_PROJECT_ID;
   if (!projectId) {
-    console.warn('⚠️  Firebase not configured — OAuth and push notifications disabled');
+    console.warn(
+      '⚠️  Firebase not configured — OAuth and push notifications disabled',
+    );
     return;
   }
 

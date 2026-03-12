@@ -3,14 +3,21 @@ import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 
-const ALLOWED_TYPES: Record<string, { mimeTypes: string[]; maxBytes: number }> = {
-  USER_AVATAR: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
-  TASK_COVER: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
-  BRAND_LOGO: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
-  PORTFOLIO: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
-  WORK_SUBMISSION: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
-  CHAT_ATTACHMENT: { mimeTypes: ['image/', 'video/', 'application/pdf'], maxBytes: 50 * 1024 * 1024 },
-};
+const ALLOWED_TYPES: Record<string, { mimeTypes: string[]; maxBytes: number }> =
+  {
+    USER_AVATAR: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
+    TASK_COVER: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
+    BRAND_LOGO: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
+    PORTFOLIO: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
+    WORK_SUBMISSION: {
+      mimeTypes: ['image/', 'video/'],
+      maxBytes: 500 * 1024 * 1024,
+    },
+    CHAT_ATTACHMENT: {
+      mimeTypes: ['image/', 'video/'],
+      maxBytes: 50 * 1024 * 1024,
+    },
+  };
 
 const FOLDERS: Record<string, string> = {
   USER_AVATAR: 'avatars',
@@ -20,6 +27,15 @@ const FOLDERS: Record<string, string> = {
   WORK_SUBMISSION: 'submissions',
   CHAT_ATTACHMENT: 'chat',
 };
+
+export interface UploadResult {
+  fileId: string;
+  url: string;
+  hlsUrl: string | null;
+  status: 'ready' | 'processing';
+  contentType: string;
+  sizeBytes: number;
+}
 
 @Injectable()
 export class MediaService {
@@ -32,17 +48,27 @@ export class MediaService {
     });
   }
 
-  async upload(type: string, entityId: string, file: Express.Multer.File) {
+  async upload(
+    type: string,
+    entityId: string,
+    file: Express.Multer.File,
+  ): Promise<UploadResult> {
     const typeConfig = ALLOWED_TYPES[type];
-    if (!typeConfig) throw new BadRequestException('Invalid file type');
+    if (!typeConfig) throw new BadRequestException('Invalid upload type');
 
-    const isAllowedMime = typeConfig.mimeTypes.some(m => file.mimetype.startsWith(m));
-    if (!isAllowedMime) throw new BadRequestException(`File type ${file.mimetype} not allowed for ${type}`);
-    if (file.size > typeConfig.maxBytes) throw new BadRequestException('File too large');
+    const isAllowedMime = typeConfig.mimeTypes.some((m) =>
+      file.mimetype.startsWith(m),
+    );
+    if (!isAllowedMime)
+      throw new BadRequestException(
+        `File type ${file.mimetype} not allowed for ${type}`,
+      );
+    if (file.size > typeConfig.maxBytes)
+      throw new BadRequestException('File too large');
 
     const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
     const isVideo = file.mimetype.startsWith('video/');
-    const resourceType: any = isVideo ? 'video' : file.mimetype === 'application/pdf' ? 'raw' : 'image';
+    const resourceType: 'video' | 'image' = isVideo ? 'video' : 'image';
 
     const result = await this.uploadToCloudinary(file.buffer, {
       folder,
@@ -50,44 +76,54 @@ export class MediaService {
       ...(isVideo && {
         eager: [{ streaming_profile: 'full_hd', format: 'm3u8' }],
         eager_async: true,
+        eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL'),
       }),
-      ...(!isVideo && resourceType !== 'raw' && {
+      ...(!isVideo && {
         transformation: [{ quality: 'auto', fetch_format: 'auto' }],
       }),
     });
 
-    const hlsUrl = isVideo
-      ? cloudinary.url(result.public_id, {
-          resource_type: 'video',
-          secure: true,
-          streaming_profile: 'full_hd',
-          format: 'm3u8',
-        })
-      : undefined;
-
     return {
       fileId: result.public_id,
-      objectKey: result.public_id,
       url: result.secure_url,
-      hlsUrl,
+      hlsUrl: null,
+      status: isVideo ? 'processing' : 'ready',
       contentType: file.mimetype,
       sizeBytes: file.size,
     };
   }
 
-  async getPresignedUrl(objectKey: string) {
-    return cloudinary.url(objectKey, {
+  handleVideoReady(publicId: string): { fileId: string; hlsUrl: string } {
+    const hlsUrl = cloudinary.url(publicId, {
+      resource_type: 'video',
       secure: true,
-      resource_type: 'auto',
+      streaming_profile: 'full_hd',
+      format: 'm3u8',
+    });
+    return { fileId: publicId, hlsUrl };
+  }
+
+  getSignedUrl(publicId: string, resourceType: 'image' | 'video' = 'image') {
+    return cloudinary.url(publicId, {
+      secure: true,
+      resource_type: resourceType,
+      sign_url: true,
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
     });
   }
 
-  private uploadToCloudinary(buffer: Buffer, options: any): Promise<UploadApiResponse> {
+  private uploadToCloudinary(
+    buffer: Buffer,
+    options: any,
+  ): Promise<UploadApiResponse> {
     return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(options, (error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      });
+      const uploadStream = cloudinary.uploader.upload_stream(
+        options,
+        (error, result) => {
+          if (error) reject(error);
+          else resolve(result);
+        },
+      );
       Readable.from(buffer).pipe(uploadStream);
     });
   }

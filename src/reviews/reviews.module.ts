@@ -9,7 +9,15 @@ import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Review, Application, CompletionRecord, BloggerProfile, BrandProfile])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Review,
+      Application,
+      CompletionRecord,
+      BloggerProfile,
+      BrandProfile,
+    ]),
+  ],
   controllers: [ReviewsController],
   providers: [ReviewsService],
 })

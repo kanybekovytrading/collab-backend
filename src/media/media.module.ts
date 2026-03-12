@@ -5,10 +5,9 @@ import { MediaController } from './media.controller';
 import { MediaService } from './media.service';
 
 @Module({
-  imports: [
-    MulterModule.register({ storage: memoryStorage() }),
-  ],
+  imports: [MulterModule.register({ storage: memoryStorage() })],
   controllers: [MediaController],
   providers: [MediaService],
+  exports: [MediaService],
 })
 export class MediaModule {}
