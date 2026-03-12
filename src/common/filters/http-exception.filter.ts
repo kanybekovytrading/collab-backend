@@ -13,6 +13,10 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
+    if (!(exception instanceof HttpException)) {
+      console.error('[Unhandled Error]', exception);
+    }
+
     const status =
       exception instanceof HttpException
         ? exception.getStatus()
@@ -21,7 +25,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const message =
       exception instanceof HttpException
         ? exception.message
-        : 'Internal server error';
+        : (exception instanceof Error ? exception.message : 'Internal server error');
 
     const errors =
       exception instanceof HttpException
