@@ -38,7 +38,7 @@ let TasksService = class TasksService {
         const qb = this.taskRepo
             .createQueryBuilder('t')
             .leftJoinAndSelect('t.brand', 'u')
-            .where('t.status = :status', { status: task_entity_1.TaskStatus.ACTIVE });
+            .where('t.status != :status', { status: task_entity_1.TaskStatus.DELETED });
         if (taskType)
             qb.andWhere('t.taskType = :taskType', { taskType });
         if (city)

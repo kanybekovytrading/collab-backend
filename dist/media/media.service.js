@@ -12,9 +12,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const client_s3_1 = require("@aws-sdk/client-s3");
-const s3_request_presigner_1 = require("@aws-sdk/s3-request-presigner");
-const uuid_1 = require("uuid");
+const cloudinary_1 = require("cloudinary");
+const stream_1 = require("stream");
 const ALLOWED_TYPES = {
     USER_AVATAR: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
     TASK_COVER: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
@@ -23,7 +22,7 @@ const ALLOWED_TYPES = {
     WORK_SUBMISSION: { mimeTypes: ['image/', 'video/'], maxBytes: 500 * 1024 * 1024 },
     CHAT_ATTACHMENT: { mimeTypes: ['image/', 'video/', 'application/pdf'], maxBytes: 50 * 1024 * 1024 },
 };
-const KEY_PREFIXES = {
+const FOLDERS = {
     USER_AVATAR: 'avatars',
     TASK_COVER: 'tasks',
     BRAND_LOGO: 'logos',
@@ -33,19 +32,13 @@ const KEY_PREFIXES = {
 };
 let MediaService = class MediaService {
     cfg;
-    s3;
-    bucket;
     constructor(cfg) {
         this.cfg = cfg;
-        this.bucket = cfg.get('MINIO_BUCKET', 'collab');
-        this.s3 = new client_s3_1.S3Client({
-            endpoint: cfg.get('MINIO_ENDPOINT', 'http://localhost:9000'),
-            region: cfg.get('MINIO_REGION', 'us-east-1'),
-            credentials: {
-                accessKeyId: cfg.get('MINIO_ACCESS_KEY', 'minioadmin'),
-                secretAccessKey: cfg.get('MINIO_SECRET_KEY', 'minioadmin'),
-            },
-            forcePathStyle: true,
+        cloudinary_1.v2.config({
+            cloud_name: cfg.get('CLOUDINARY_CLOUD_NAME'),
+            api_key: cfg.get('CLOUDINARY_API_KEY'),
+            api_secret: cfg.get('CLOUDINARY_API_SECRET'),
+            secure: true,
         });
     }
     async upload(type, entityId, file) {
@@ -57,28 +50,40 @@ let MediaService = class MediaService {
             throw new common_1.BadRequestException(`File type ${file.mimetype} not allowed for ${type}`);
         if (file.size > typeConfig.maxBytes)
             throw new common_1.BadRequestException('File too large');
-        const ext = file.originalname.split('.').pop();
-        const fileId = (0, uuid_1.v4)();
-        const prefix = KEY_PREFIXES[type] || type.toLowerCase();
-        const objectKey = `${prefix}/${entityId}/${fileId}.${ext}`;
-        await this.s3.send(new client_s3_1.PutObjectCommand({
-            Bucket: this.bucket,
-            Key: objectKey,
-            Body: file.buffer,
-            ContentType: file.mimetype,
-        }));
-        const presignedUrl = await (0, s3_request_presigner_1.getSignedUrl)(this.s3, new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: objectKey }), { expiresIn: 3600 });
+        const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
+        const isVideo = file.mimetype.startsWith('video/');
+        const resourceType = isVideo ? 'video' : file.mimetype === 'application/pdf' ? 'raw' : 'image';
+        const result = await this.uploadToCloudinary(file.buffer, {
+            folder,
+            resource_type: resourceType,
+            transformation: resourceType !== 'raw'
+                ? [{ quality: 'auto', fetch_format: 'auto' }]
+                : undefined,
+        });
         return {
-            fileId,
-            objectKey,
-            presignedUrl,
+            fileId: result.public_id,
+            objectKey: result.public_id,
+            presignedUrl: result.secure_url,
             contentType: file.mimetype,
             sizeBytes: file.size,
         };
     }
     async getPresignedUrl(objectKey) {
-        const url = await (0, s3_request_presigner_1.getSignedUrl)(this.s3, new client_s3_1.GetObjectCommand({ Bucket: this.bucket, Key: objectKey }), { expiresIn: 3600 });
-        return url;
+        return cloudinary_1.v2.url(objectKey, {
+            secure: true,
+            resource_type: 'auto',
+        });
+    }
+    uploadToCloudinary(buffer, options) {
+        return new Promise((resolve, reject) => {
+            const uploadStream = cloudinary_1.v2.uploader.upload_stream(options, (error, result) => {
+                if (error)
+                    reject(error);
+                else
+                    resolve(result);
+            });
+            stream_1.Readable.from(buffer).pipe(uploadStream);
+        });
     }
 };
 exports.MediaService = MediaService;

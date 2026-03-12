@@ -12,12 +12,15 @@ let HttpExceptionFilter = class HttpExceptionFilter {
     catch(exception, host) {
         const ctx = host.switchToHttp();
         const response = ctx.getResponse();
+        if (!(exception instanceof common_1.HttpException)) {
+            console.error('[Unhandled Error]', exception);
+        }
         const status = exception instanceof common_1.HttpException
             ? exception.getStatus()
             : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
         const message = exception instanceof common_1.HttpException
             ? exception.message
-            : 'Internal server error';
+            : (exception instanceof Error ? exception.message : 'Internal server error');
         const errors = exception instanceof common_1.HttpException
             ? exception.getResponse()?.message
             : null;

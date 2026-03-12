@@ -43,7 +43,7 @@ exports.AppModule = AppModule = __decorate([
                             ssl: { rejectUnauthorized: false },
                             entities: entities_1.databaseEntities,
                             synchronize: !isProduction,
-                            logging: false,
+                            logging: true,
                         };
                     }
                     return {
@@ -54,8 +54,8 @@ exports.AppModule = AppModule = __decorate([
                         password: cfg.get('DB_PASSWORD', 'postgres'),
                         database: cfg.get('DB_NAME', 'owner'),
                         entities: entities_1.databaseEntities,
-                        synchronize: true,
-                        logging: false,
+                        synchronize: !isProduction,
+                        logging: true,
                     };
                 },
             }),

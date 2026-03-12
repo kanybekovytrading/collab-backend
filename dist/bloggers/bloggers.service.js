@@ -27,7 +27,6 @@ let BloggersService = class BloggersService {
         const qb = this.bloggerRepo
             .createQueryBuilder('b')
             .leftJoinAndSelect('b.user', 'u')
-            .leftJoinAndSelect('b.portfolioItems', 'pi')
             .where('u.active = true');
         if (country)
             qb.andWhere('u.country = :country', { country });
@@ -52,13 +51,14 @@ let BloggersService = class BloggersService {
         if (verifiedOnly)
             qb.andWhere('u.verified = true');
         const sortMap = {
-            rating: 'b.rating DESC',
-            price_asc: 'b.minPrice ASC',
-            price_desc: 'b.minPrice DESC',
-            tasks: 'b.completedTasksCount DESC',
-            reviews: 'b.reviewsCount DESC',
+            rating: { col: 'b.rating', dir: 'DESC' },
+            price_asc: { col: 'b.minPrice', dir: 'ASC' },
+            price_desc: { col: 'b.minPrice', dir: 'DESC' },
+            tasks: { col: 'b.completedTasksCount', dir: 'DESC' },
+            reviews: { col: 'b.reviewsCount', dir: 'DESC' },
         };
-        qb.orderBy(sortMap[sortBy] || 'b.rating DESC');
+        const sort = sortMap[sortBy] || { col: 'b.rating', dir: 'DESC' };
+        qb.orderBy(sort.col, sort.dir);
         qb.skip(page * size).take(size);
         const [items, total] = await qb.getManyAndCount();
         return {
@@ -72,13 +72,19 @@ let BloggersService = class BloggersService {
         };
     }
     async findOne(userId) {
-        const b = await this.bloggerRepo.findOne({ where: { user: { id: userId } } });
+        const b = await this.bloggerRepo.findOne({
+            where: { user: { id: userId } },
+            relations: ['user', 'portfolioItems'],
+        });
         if (!b)
             throw new common_1.NotFoundException('Blogger not found');
         return this.format(b);
     }
     async update(userId, dto) {
-        const b = await this.bloggerRepo.findOne({ where: { user: { id: userId } } });
+        const b = await this.bloggerRepo.findOne({
+            where: { user: { id: userId } },
+            relations: ['user'],
+        });
         if (!b)
             throw new common_1.NotFoundException('Blogger profile not found');
         Object.assign(b, dto);
@@ -96,9 +102,9 @@ let BloggersService = class BloggersService {
             verified: b.user?.verified,
             bio: b.bio,
             categories: b.categories,
-            minPrice: b.minPrice,
+            minPrice: b.minPrice != null ? Number(b.minPrice) : null,
             worksWithBarter: b.worksWithBarter,
-            rating: b.rating,
+            rating: Number(b.rating),
             completedTasksCount: b.completedTasksCount,
             reviewsCount: b.reviewsCount,
             socialAccounts: b.socialAccounts || [],

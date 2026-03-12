@@ -35,7 +35,7 @@ __decorate([
     __metadata("design:type", String)
 ], BloggerProfile.prototype, "id", void 0);
 __decorate([
-    (0, typeorm_1.OneToOne)(() => user_entity_1.User, { eager: true }),
+    (0, typeorm_1.OneToOne)(() => user_entity_1.User),
     (0, typeorm_1.JoinColumn)(),
     __metadata("design:type", user_entity_1.User)
 ], BloggerProfile.prototype, "user", void 0);
@@ -76,7 +76,7 @@ __decorate([
     __metadata("design:type", Number)
 ], BloggerProfile.prototype, "age", void 0);
 __decorate([
-    (0, typeorm_1.OneToMany)(() => portfolio_item_entity_1.PortfolioItem, (item) => item.blogger, { eager: true }),
+    (0, typeorm_1.OneToMany)(() => portfolio_item_entity_1.PortfolioItem, (item) => item.blogger),
     __metadata("design:type", Array)
 ], BloggerProfile.prototype, "portfolioItems", void 0);
 __decorate([
