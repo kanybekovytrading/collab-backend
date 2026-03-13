@@ -71,12 +71,21 @@ export class MediaService implements OnModuleInit {
   }
 
   private async setBucketPublicPolicy() {
-    const { PutBucketAclCommand } = await import('@aws-sdk/client-s3');
+    const { PutBucketPolicyCommand } = await import('@aws-sdk/client-s3');
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Sid: 'PublicRead',
+          Effect: 'Allow',
+          Principal: '*',
+          Action: 's3:GetObject',
+          Resource: `arn:aws:s3:::${this.bucket}/*`,
+        },
+      ],
+    });
     await this.s3.send(
-      new PutBucketAclCommand({
-        Bucket: this.bucket,
-        ACL: 'public-read',
-      }),
+      new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }),
     );
   }
 
