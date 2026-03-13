@@ -60,6 +60,7 @@ export class MediaService implements OnModuleInit {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicBase: string;
+  private readonly appUrl: string;
 
   async onModuleInit() {
     try {
@@ -76,7 +77,7 @@ export class MediaService implements OnModuleInit {
       Version: '2012-10-17',
       Statement: [
         {
-          Sid: 'PublicRead',
+          Sid: 'PublicReadGetObject',
           Effect: 'Allow',
           Principal: '*',
           Action: 's3:GetObject',
@@ -107,6 +108,7 @@ export class MediaService implements OnModuleInit {
     // Или path-style: https://t3.storageapi.dev/<bucket>
     // Tigris рекомендует virtual-hosted, но для auto-region используем path-style
     this.publicBase = `${endpoint}/${this.bucket}`;
+    this.appUrl = cfg.getOrThrow<string>('APP_URL'); // https://collab-backend-production-c5de.up.railway.app
   }
 
   // ── Прямая загрузка через сервер (мультипарт) ────────────────────────────
@@ -145,7 +147,7 @@ export class MediaService implements OnModuleInit {
 
     return {
       fileId: key,
-      url: `${this.publicBase}/${key}`,
+      url: `${this.appUrl}/api/v1/media/file?key=${key}`,
       hlsUrl: null,
       status: 'ready',
       contentType: file.mimetype,
@@ -191,7 +193,7 @@ export class MediaService implements OnModuleInit {
 
     return {
       uploadUrl,
-      publicUrl: `${this.publicBase}/${key}`,
+      publicUrl: `${this.appUrl}/api/v1/media/file?key=${key}`,
       fileId: key,
       expiresIn: EXPIRES,
     };

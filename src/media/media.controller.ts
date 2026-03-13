@@ -1,12 +1,12 @@
 import {
   BadRequestException,
-  Body,
   Controller,
   Delete,
   Get,
   Param,
   Post,
   Query,
+  Redirect,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -22,6 +22,7 @@ import {
 import { MediaService } from './media.service';
 import { apiResponse } from '../common/dto/api-response';
 import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
+import { Public } from 'src/common/decorators/public.decorator';
 
 @ApiTags('Media')
 @Controller('media')
@@ -29,6 +30,19 @@ import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
 @ApiBearerAuth()
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
+
+  // ── 0. Публичный редирект на файл (без авторизации) ──────────────────────
+  // GET /media/file?key=portfolio/xxx/yyy.jpg → 302 → presigned Tigris URL
+  @Public()
+  @Get('file')
+  @Redirect()
+  @ApiOperation({ summary: 'Получить файл по ключу (публичный редирект)' })
+  @ApiQuery({ name: 'key', example: 'portfolio/uuid/file.jpg' })
+  async getFile(@Query('key') key: string) {
+    if (!key) throw new BadRequestException('key is required');
+    const url = await this.mediaService.getPresignedReadUrl(key);
+    return { url, statusCode: 302 };
+  }
 
   // ── 1. Presigned URL для прямой загрузки с клиента ───────────────────────
   // Клиент: GET /media/presign → получает uploadUrl → PUT файл на Tigris
