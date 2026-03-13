@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -55,10 +55,41 @@ export interface PresignedUploadResult {
 // ─── Сервис ───────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class MediaService {
+export class MediaService implements OnModuleInit {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicBase: string;
+
+  async onModuleInit() {
+    try {
+      await this.setBucketPublicPolicy();
+      console.log('[MediaService] bucket policy set to public read');
+    } catch (e) {
+      console.warn('[MediaService] failed to set bucket policy:', e);
+    }
+  }
+
+  private async setBucketPublicPolicy() {
+    const { PutBucketPolicyCommand } = await import('@aws-sdk/client-s3');
+    const policy = JSON.stringify({
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Sid: 'PublicReadGetObject',
+          Effect: 'Allow',
+          Principal: '*',
+          Action: 's3:GetObject',
+          Resource: `arn:aws:s3:::${this.bucket}/*`,
+        },
+      ],
+    });
+    await this.s3.send(
+      new PutBucketPolicyCommand({
+        Bucket: this.bucket,
+        Policy: policy,
+      }),
+    );
+  }
 
   constructor(private cfg: ConfigService) {
     const endpoint = cfg.getOrThrow<string>('MINIO_ENDPOINT'); // https://t3.storageapi.dev
