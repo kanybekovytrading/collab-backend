@@ -5,6 +5,7 @@ import {
   PutObjectCommand,
   DeleteObjectCommand,
   HeadObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { v4 as uuidv4 } from 'uuid';
@@ -212,6 +213,15 @@ export class MediaService implements OnModuleInit {
   // ── Получить публичный URL по fileId ──────────────────────────────────────
   getPublicUrl(fileId: string): string {
     return `${this.publicBase}/${fileId}`;
+  }
+
+  // ── Presigned URL для чтения (если bucket не публичный) ───────────────────
+  async getPresignedReadUrl(fileId: string, expiresIn = 3600): Promise<string> {
+    const command = new GetObjectCommand({
+      Bucket: this.bucket,
+      Key: fileId,
+    });
+    return getSignedUrl(this.s3, command, { expiresIn });
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────────────
