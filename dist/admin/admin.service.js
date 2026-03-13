@@ -48,8 +48,10 @@ let AdminService = class AdminService {
             take: size,
         });
         return {
-            content: items.map(u => this.formatUser(u)),
-            page, size, totalElements: total,
+            content: items.map((u) => this.formatUser(u)),
+            page,
+            size,
+            totalElements: total,
             totalPages: Math.ceil(total / size),
             first: page === 0,
             last: (page + 1) * size >= total,
@@ -72,23 +74,32 @@ let AdminService = class AdminService {
         return this.formatUser(user);
     }
     async getTasks(status, search, page = 0, size = 20) {
-        const qb = this.taskRepo.createQueryBuilder('t').leftJoinAndSelect('t.brand', 'u');
+        const qb = this.taskRepo
+            .createQueryBuilder('t')
+            .leftJoinAndSelect('t.brand', 'u');
         if (status)
             qb.where('t.status = :status', { status });
         if (search)
             qb.andWhere('t.title ILIKE :s', { s: `%${search}%` });
-        qb.orderBy('t.createdAt', 'DESC').skip(page * size).take(size);
+        qb.orderBy('t.createdAt', 'DESC')
+            .skip(page * size)
+            .take(size);
         const [items, total] = await qb.getManyAndCount();
         return {
-            content: items.map(t => this.formatTask(t)),
-            page, size, totalElements: total,
+            content: items.map((t) => this.formatTask(t)),
+            page,
+            size,
+            totalElements: total,
             totalPages: Math.ceil(total / size),
             first: page === 0,
             last: (page + 1) * size >= total,
         };
     }
     async verifyTask(id, status) {
-        const task = await this.taskRepo.findOne({ where: { id }, relations: ['brand'] });
+        const task = await this.taskRepo.findOne({
+            where: { id },
+            relations: ['brand'],
+        });
         if (!task)
             throw new common_1.NotFoundException('Task not found');
         task.status = status;
@@ -96,7 +107,10 @@ let AdminService = class AdminService {
         return this.formatTask(task);
     }
     async restoreTask(id) {
-        const task = await this.taskRepo.findOne({ where: { id }, relations: ['brand'] });
+        const task = await this.taskRepo.findOne({
+            where: { id },
+            relations: ['brand'],
+        });
         if (!task)
             throw new common_1.NotFoundException('Task not found');
         task.status = task_entity_1.TaskStatus.ACTIVE;
@@ -111,7 +125,7 @@ let AdminService = class AdminService {
         await this.taskRepo.save(task);
     }
     async getStats() {
-        const [totalUsers, totalBloggers, totalBrands, totalTasks, activeTasks, completedCollaborations, totalApplications] = await Promise.all([
+        const [totalUsers, totalBloggers, totalBrands, totalTasks, activeTasks, completedCollaborations, totalApplications,] = await Promise.all([
             this.userRepo.count(),
             this.bloggerRepo.count(),
             this.brandRepo.count(),
@@ -120,19 +134,42 @@ let AdminService = class AdminService {
             this.completionRepo.count(),
             this.appRepo.count(),
         ]);
-        return { totalUsers, totalBloggers, totalBrands, totalTasks, activeTasks, completedCollaborations, totalApplications, generatedAt: new Date() };
+        return {
+            totalUsers,
+            totalBloggers,
+            totalBrands,
+            totalTasks,
+            activeTasks,
+            completedCollaborations,
+            totalApplications,
+            generatedAt: new Date(),
+        };
     }
     formatUser(u) {
         return {
-            id: u.id, fullName: u.fullName, email: u.email, phone: u.phone,
-            roles: u.roles, currentRole: u.currentRole, verified: u.verified,
-            active: u.active, city: u.city, country: u.country, createdAt: u.createdAt,
+            id: u.id,
+            fullName: u.fullName,
+            email: u.email,
+            phone: u.phone,
+            roles: u.roles,
+            currentRole: u.currentRole,
+            verified: u.verified,
+            active: u.active,
+            city: u.city,
+            country: u.country,
+            createdAt: u.createdAt,
         };
     }
     formatTask(t) {
         return {
-            id: t.id, title: t.title, description: t.description, taskType: t.taskType,
-            status: t.status, brandName: t.brand?.fullName, brandEmail: t.brand?.email, createdAt: t.createdAt,
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            taskType: t.taskType,
+            status: t.status,
+            brandName: t.brand?.fullName,
+            brandEmail: t.brand?.email,
+            createdAt: t.createdAt,
         };
     }
 };

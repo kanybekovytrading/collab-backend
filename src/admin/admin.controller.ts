@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -47,13 +56,19 @@ export class AdminController {
     @Query('page') page = 0,
     @Query('size') size = 20,
   ) {
-    return apiResponse(await this.adminService.getTasks(status, search, +page, +size));
+    return apiResponse(
+      await this.adminService.getTasks(status, search, +page, +size),
+    );
   }
 
   @Put('tasks/:id/verify')
-  @ApiOperation({ summary: 'Верифицировать задание' })
-  async verifyTask(@Param('id', ParseUUIDPipe) id: string, @Body() status: string) {
-    return apiResponse(await this.adminService.verifyTask(id, status as any));
+  async verifyTask(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: { status: string }, // ← правильно
+  ) {
+    return apiResponse(
+      await this.adminService.verifyTask(id, dto.status as any),
+    );
   }
 
   @Put('tasks/:id/restore')

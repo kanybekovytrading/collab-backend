@@ -1,7 +1,15 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
-import { Readable } from 'stream';
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectCommand,
+  HeadObjectCommand,
+} from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { v4 as uuidv4 } from 'uuid';
+
+// ─── Конфиг типов ─────────────────────────────────────────────────────────────
 
 const ALLOWED_TYPES: Record<string, { mimeTypes: string[]; maxBytes: number }> =
   {
@@ -31,23 +39,49 @@ const FOLDERS: Record<string, string> = {
 export interface UploadResult {
   fileId: string;
   url: string;
-  hlsUrl: string | null;
-  status: 'ready' | 'processing';
+  hlsUrl: null; // Tigris не транскодирует — всегда null
+  status: 'ready'; // файл сразу готов
   contentType: string;
   sizeBytes: number;
 }
 
+export interface PresignedUploadResult {
+  uploadUrl: string; // PUT сюда файл напрямую
+  publicUrl: string; // итоговый публичный URL после загрузки
+  fileId: string; // key в bucket
+  expiresIn: number; // секунды
+}
+
+// ─── Сервис ───────────────────────────────────────────────────────────────────
+
 @Injectable()
 export class MediaService {
+  private readonly s3: S3Client;
+  private readonly bucket: string;
+  private readonly publicBase: string;
+
   constructor(private cfg: ConfigService) {
-    cloudinary.config({
-      cloud_name: cfg.get('CLOUDINARY_CLOUD_NAME'),
-      api_key: cfg.get('CLOUDINARY_API_KEY'),
-      api_secret: cfg.get('CLOUDINARY_API_SECRET'),
-      secure: true,
+    const endpoint = cfg.getOrThrow<string>('MINIO_ENDPOINT'); // https://t3.storageapi.dev
+    const accessKey = cfg.getOrThrow<string>('MINIO_ACCESS_KEY');
+    const secretKey = cfg.getOrThrow<string>('MINIO_SECRET_KEY');
+    this.bucket = cfg.getOrThrow<string>('MINIO_BUCKET'); // spacious-locker-mwfnscgh3
+
+    this.s3 = new S3Client({
+      endpoint,
+      region: cfg.get<string>('MINIO_REGION', 'auto'),
+      credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
+      forcePathStyle: true, // обязательно для Tigris
     });
+
+    // Публичный базовый URL для отдачи файлов
+    // Формат: https://<bucket>.t3.storageapi.dev  (virtual-hosted style)
+    // Или path-style: https://t3.storageapi.dev/<bucket>
+    // Tigris рекомендует virtual-hosted, но для auto-region используем path-style
+    this.publicBase = `${endpoint}/${this.bucket}`;
   }
 
+  // ── Прямая загрузка через сервер (мультипарт) ────────────────────────────
+  // Используется как fallback или для небольших файлов
   async upload(
     type: string,
     entityId: string,
@@ -66,107 +100,123 @@ export class MediaService {
     if (file.size > typeConfig.maxBytes)
       throw new BadRequestException('File too large');
 
-    const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
-    const isVideo = file.mimetype.startsWith('video/');
-    const resourceType: 'video' | 'image' = isVideo ? 'video' : 'image';
+    const ext = this.getExt(file.originalname, file.mimetype);
+    const key = `${FOLDERS[type] || type.toLowerCase()}/${entityId}/${uuidv4()}${ext}`;
 
-    const result = await this.uploadToCloudinary(file.buffer, {
-      folder,
-      resource_type: resourceType,
-      ...(isVideo && {
-        eager: [{ streaming_profile: 'full_hd', format: 'm3u8' }],
-        eager_async: true,
-        eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL'),
+    await this.s3.send(
+      new PutObjectCommand({
+        Bucket: this.bucket,
+        Key: key,
+        Body: file.buffer,
+        ContentType: file.mimetype,
+        // Публичный доступ на чтение
+        ACL: 'public-read',
       }),
-      ...(!isVideo && {
-        transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-      }),
-    });
+    );
 
     return {
-      fileId: result.public_id,
-      url: result.secure_url,
+      fileId: key,
+      url: `${this.publicBase}/${key}`,
       hlsUrl: null,
-      status: isVideo ? 'processing' : 'ready',
+      status: 'ready',
       contentType: file.mimetype,
       sizeBytes: file.size,
     };
   }
 
-  /**
-   * Генерирует подпись для прямой загрузки с фронта на Cloudinary.
-   * Фронт получает подпись и загружает файл напрямую — минуя Railway.
-   */
-  getUploadSignature(type: string, entityId: string) {
+  // ── Presigned URL для прямой загрузки с клиента ───────────────────────────
+  // Клиент получает uploadUrl → PUT файл напрямую на Tigris → Railway не участвует
+  async getPresignedUpload(
+    type: string,
+    entityId: string,
+    contentType: string,
+    sizeBytes: number,
+  ): Promise<PresignedUploadResult> {
     const typeConfig = ALLOWED_TYPES[type];
     if (!typeConfig) throw new BadRequestException('Invalid upload type');
 
-    const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
-    const timestamp = Math.floor(Date.now() / 1000);
-    const mightBeVideo = ['PORTFOLIO', 'WORK_SUBMISSION'].includes(type);
-
-    const paramsToSign: Record<string, any> = {
-      folder,
-      timestamp,
-      ...(mightBeVideo && {
-        eager: 'sp_full_hd/m3u8',
-        eager_async: 'true',
-        eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL') ?? '',
-      }),
-    };
-
-    // Cloudinary SDK сам правильно сортирует параметры и генерирует подпись
-    const signature = cloudinary.utils.api_sign_request(
-      paramsToSign,
-      this.cfg.get('CLOUDINARY_API_SECRET'),
+    const isAllowedMime = typeConfig.mimeTypes.some((m) =>
+      contentType.startsWith(m),
     );
+    if (!isAllowedMime)
+      throw new BadRequestException(
+        `File type ${contentType} not allowed for ${type}`,
+      );
+    if (sizeBytes > typeConfig.maxBytes)
+      throw new BadRequestException('File too large');
+
+    const ext = this.getMimeExt(contentType);
+    const key = `${FOLDERS[type] || type.toLowerCase()}/${entityId}/${uuidv4()}${ext}`;
+    const EXPIRES = 300; // 5 минут на загрузку
+
+    const command = new PutObjectCommand({
+      Bucket: this.bucket,
+      Key: key,
+      ContentType: contentType,
+      ACL: 'public-read',
+    });
+
+    const uploadUrl = await getSignedUrl(this.s3, command, {
+      expiresIn: EXPIRES,
+    });
 
     return {
-      signature,
-      timestamp,
-      apiKey: this.cfg.get('CLOUDINARY_API_KEY'),
-      cloudName: this.cfg.get('CLOUDINARY_CLOUD_NAME'),
-      folder,
-      eager: mightBeVideo ? 'sp_full_hd/m3u8' : undefined,
-      eagerAsync: mightBeVideo ? true : undefined,
-      eagerNotificationUrl: mightBeVideo
-        ? this.cfg.get('CLOUDINARY_WEBHOOK_URL')
-        : undefined,
+      uploadUrl,
+      publicUrl: `${this.publicBase}/${key}`,
+      fileId: key,
+      expiresIn: EXPIRES,
     };
   }
 
-  handleVideoReady(publicId: string): { fileId: string; hlsUrl: string } {
-    const hlsUrl = cloudinary.url(publicId, {
-      resource_type: 'video',
-      secure: true,
-      streaming_profile: 'full_hd',
-      format: 'm3u8',
-    });
-    return { fileId: publicId, hlsUrl };
+  // ── Удаление файла ────────────────────────────────────────────────────────
+  async delete(fileId: string): Promise<void> {
+    await this.s3.send(
+      new DeleteObjectCommand({
+        Bucket: this.bucket,
+        Key: fileId,
+      }),
+    );
   }
 
-  getSignedUrl(publicId: string, resourceType: 'image' | 'video' = 'image') {
-    return cloudinary.url(publicId, {
-      secure: true,
-      resource_type: resourceType,
-      sign_url: true,
-      expires_at: Math.floor(Date.now() / 1000) + 3600,
-    });
-  }
-
-  private uploadToCloudinary(
-    buffer: Buffer,
-    options: any,
-  ): Promise<UploadApiResponse> {
-    return new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream(
-        options,
-        (error, result) => {
-          if (error) reject(error);
-          else resolve(result);
-        },
+  // ── Проверить существование ───────────────────────────────────────────────
+  async exists(fileId: string): Promise<boolean> {
+    try {
+      await this.s3.send(
+        new HeadObjectCommand({ Bucket: this.bucket, Key: fileId }),
       );
-      Readable.from(buffer).pipe(uploadStream);
-    });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // ── Получить публичный URL по fileId ──────────────────────────────────────
+  getPublicUrl(fileId: string): string {
+    return `${this.publicBase}/${fileId}`;
+  }
+
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+
+  private getExt(filename: string, mimetype: string): string {
+    const fromName = filename?.includes('.')
+      ? '.' + filename.split('.').pop().toLowerCase()
+      : null;
+    return fromName ?? this.getMimeExt(mimetype);
+  }
+
+  private getMimeExt(mime: string): string {
+    const map: Record<string, string> = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/gif': '.gif',
+      'image/webp': '.webp',
+      'image/heic': '.heic',
+      'video/mp4': '.mp4',
+      'video/quicktime': '.mov',
+      'video/webm': '.webm',
+      'video/x-m4v': '.m4v',
+    };
+    return map[mime] ?? '';
   }
 }

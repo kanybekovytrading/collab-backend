@@ -40,7 +40,9 @@ let ChatGateway = class ChatGateway {
                 client.disconnect();
                 return;
             }
-            const payload = this.jwtService.verify(token, { secret: this.cfg.get('JWT_SECRET', 'secret') });
+            const payload = this.jwtService.verify(token, {
+                secret: this.cfg.get('JWT_SECRET', 'secret'),
+            });
             const user = await this.userRepo.findOne({ where: { id: payload.sub } });
             if (!user) {
                 client.disconnect();

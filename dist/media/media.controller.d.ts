@@ -10,14 +10,29 @@ export declare class MediaController {
         data: import("./media.service").UploadResult;
         errors: any;
     }>;
-    signedUrl(fileId: string, resourceType?: 'image' | 'video'): Promise<{
+    signedUrl(fileId: string, resourceType?: 'image' | 'video'): {
         success: boolean;
         message: string;
         data: string;
         errors: any;
-    }>;
-    cloudinaryWebhook(body: any, signature: string, timestamp: string): Promise<{
+    };
+    getUploadSignature(type: string, entityId: string): {
+        success: boolean;
+        message: string;
+        data: {
+            signature: string;
+            timestamp: number;
+            apiKey: any;
+            cloudName: any;
+            folder: string;
+            eager: string;
+            eagerAsync: boolean;
+            eagerNotificationUrl: any;
+        };
+        errors: any;
+    };
+    cloudinaryWebhook(body: any, signature: string, timestamp: string): {
         received: boolean;
-    }>;
+    };
     private verifyWebhookSignature;
 }

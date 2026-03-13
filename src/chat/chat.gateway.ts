@@ -29,10 +29,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(client: Socket) {
     try {
       const token = client.handshake.headers.authorization?.split(' ')[1];
-      if (!token) { client.disconnect(); return; }
-      const payload = this.jwtService.verify(token, { secret: this.cfg.get('JWT_SECRET', 'secret') });
+      if (!token) {
+        client.disconnect();
+        return;
+      }
+      const payload = this.jwtService.verify(token, {
+        secret: this.cfg.get('JWT_SECRET', 'secret'),
+      });
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
-      if (!user) { client.disconnect(); return; }
+      if (!user) {
+        client.disconnect();
+        return;
+      }
       (client as any).user = user;
     } catch {
       client.disconnect();
@@ -46,12 +54,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('chat')
   async handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { applicationId: string; content: string; attachmentUrl?: string; attachmentType?: string },
+    @MessageBody()
+    data: {
+      applicationId: string;
+      content: string;
+      attachmentUrl?: string;
+      attachmentType?: string;
+    },
   ) {
     const user = (client as any).user;
     if (!user) return;
 
-    const msg = await this.chatService.sendMessage(data.applicationId, user, data);
+    const msg = await this.chatService.sendMessage(
+      data.applicationId,
+      user,
+      data,
+    );
     this.server.to(`chat:${data.applicationId}`).emit('message', msg);
     return msg;
   }

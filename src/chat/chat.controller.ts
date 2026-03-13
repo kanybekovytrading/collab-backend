@@ -1,4 +1,12 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -19,7 +27,9 @@ export class ChatController {
     @Query('page') page = 0,
     @Query('size') size = 50,
   ) {
-    return apiResponse(await this.chatService.getMessages(appId, user.id, +page, +size));
+    return apiResponse(
+      await this.chatService.getMessages(appId, user.id, +page, +size),
+    );
   }
 
   @Post(':appId/messages')

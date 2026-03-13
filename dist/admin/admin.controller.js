@@ -35,8 +35,8 @@ let AdminController = class AdminController {
     async getTasks(status, search, page = 0, size = 20) {
         return (0, api_response_1.apiResponse)(await this.adminService.getTasks(status, search, +page, +size));
     }
-    async verifyTask(id, status) {
-        return (0, api_response_1.apiResponse)(await this.adminService.verifyTask(id, status));
+    async verifyTask(id, dto) {
+        return (0, api_response_1.apiResponse)(await this.adminService.verifyTask(id, dto.status));
     }
     async restoreTask(id) {
         return (0, api_response_1.apiResponse)(await this.adminService.restoreTask(id));
@@ -91,11 +91,10 @@ __decorate([
 ], AdminController.prototype, "getTasks", null);
 __decorate([
     (0, common_1.Put)('tasks/:id/verify'),
-    (0, swagger_1.ApiOperation)({ summary: 'Верифицировать задание' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "verifyTask", null);
 __decorate([

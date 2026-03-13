@@ -92,7 +92,9 @@ export declare class AdminController {
         };
         errors: any;
     }>;
-    verifyTask(id: string, status: string): Promise<{
+    verifyTask(id: string, dto: {
+        status: string;
+    }): Promise<{
         success: boolean;
         message: string;
         data: {

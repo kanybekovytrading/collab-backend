@@ -36,12 +36,19 @@ let MediaController = class MediaController {
             throw new common_1.BadRequestException('file is required');
         return (0, api_response_1.apiResponse)(await this.mediaService.upload(type, entityId, file));
     }
-    async signedUrl(fileId, resourceType = 'image') {
+    signedUrl(fileId, resourceType = 'image') {
         if (!fileId)
             throw new common_1.BadRequestException('fileId is required');
         return (0, api_response_1.apiResponse)(this.mediaService.getSignedUrl(fileId, resourceType));
     }
-    async cloudinaryWebhook(body, signature, timestamp) {
+    getUploadSignature(type, entityId) {
+        if (!type)
+            throw new common_1.BadRequestException('type is required');
+        if (!entityId)
+            throw new common_1.BadRequestException('entityId is required');
+        return (0, api_response_1.apiResponse)(this.mediaService.getUploadSignature(type, entityId));
+    }
+    cloudinaryWebhook(body, signature, timestamp) {
         this.verifyWebhookSignature(JSON.stringify(body), timestamp, signature);
         if (body.notification_type === 'eager' && body.public_id) {
             const data = this.mediaService.handleVideoReady(body.public_id);
@@ -85,8 +92,20 @@ __decorate([
     __param(1, (0, common_1.Query)('resourceType')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:returntype", void 0)
 ], MediaController.prototype, "signedUrl", null);
+__decorate([
+    (0, common_1.Get)('sign'),
+    (0, swagger_1.ApiBearerAuth)(),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Получить подпись для прямой загрузки на Cloudinary',
+    }),
+    __param(0, (0, common_1.Query)('type')),
+    __param(1, (0, common_1.Query)('entityId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", void 0)
+], MediaController.prototype, "getUploadSignature", null);
 __decorate([
     (0, common_1.Post)('webhook'),
     (0, swagger_1.ApiExcludeEndpoint)(),
@@ -95,7 +114,7 @@ __decorate([
     __param(2, (0, common_1.Headers)('x-cld-timestamp')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [Object, String, String]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:returntype", void 0)
 ], MediaController.prototype, "cloudinaryWebhook", null);
 exports.MediaController = MediaController = __decorate([
     (0, swagger_1.ApiTags)('Media'),
