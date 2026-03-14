@@ -1,3 +1,4 @@
+// chat.controller.ts
 import {
   Body,
   Controller,
@@ -19,6 +20,13 @@ import { apiResponse } from '../common/dto/api-response';
 export class ChatController {
   constructor(private chatService: ChatService) {}
 
+  // ── Список всех чатов пользователя ─────────────────────────────────────
+  @Get('my')
+  @ApiOperation({ summary: 'Список моих чатов (как Instagram Direct)' })
+  async getMyChats(@CurrentUser() user: User) {
+    return apiResponse(await this.chatService.getMyChats(user.id));
+  }
+
   @Get(':appId/messages')
   @ApiOperation({ summary: 'История сообщений чата' })
   async getMessages(
@@ -33,7 +41,7 @@ export class ChatController {
   }
 
   @Post(':appId/messages')
-  @ApiOperation({ summary: 'Отправить сообщение (REST)' })
+  @ApiOperation({ summary: 'Отправить сообщение (REST fallback)' })
   async send(
     @CurrentUser() user: User,
     @Param('appId', ParseUUIDPipe) appId: string,

@@ -1,3 +1,4 @@
+// chat.service.ts
 import {
   ForbiddenException,
   Injectable,
@@ -28,6 +29,74 @@ export class ChatService {
     return app;
   }
 
+  // ── Список всех чатов пользователя (как Instagram Direct) ──────────────
+  async getMyChats(userId: string) {
+    // Находим все заявки где пользователь — блогер или бренд
+    const applications = await this.appRepo.find({
+      where: [{ blogger: { id: userId } }, { task: { brand: { id: userId } } }],
+      relations: ['blogger', 'task', 'task.brand'],
+      order: { createdAt: 'DESC' },
+    });
+
+    // Для каждой заявки берём последнее сообщение и кол-во непрочитанных
+    const chats = await Promise.all(
+      applications.map(async (app) => {
+        // Последнее сообщение
+        const lastMessage = await this.msgRepo.findOne({
+          where: { application: { id: app.id } },
+          relations: ['sender'],
+          order: { createdAt: 'DESC' },
+        });
+
+        // Кол-во непрочитанных для текущего пользователя
+        const unreadCount = await this.msgRepo.count({
+          where: {
+            application: { id: app.id },
+            recipient: { id: userId },
+            read: false,
+          },
+        });
+
+        // Собеседник — если я блогер, то собеседник бренд и наоборот
+        const isBlogger = app.blogger.id === userId;
+        const participant = isBlogger
+          ? {
+              id: app.task.brand.id,
+              fullName: app.task.brand.fullName,
+              avatarUrl: (app.task.brand as any).avatarUrl ?? null,
+            }
+          : {
+              id: app.blogger.id,
+              fullName: app.blogger.fullName,
+              avatarUrl: app.blogger.avatarUrl ?? null,
+            };
+
+        return {
+          applicationId: app.id,
+          taskTitle: app.task.title,
+          taskId: app.task.id,
+          status: app.status,
+          participant,
+          lastMessage: lastMessage
+            ? {
+                content: lastMessage.content,
+                senderId: lastMessage.sender?.id,
+                createdAt: lastMessage.createdAt,
+              }
+            : null,
+          unreadCount,
+          updatedAt: lastMessage?.createdAt ?? app.createdAt,
+        };
+      }),
+    );
+
+    // Сортируем по времени последнего сообщения (новые сверху)
+    return chats.sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  }
+
   async getMessages(appId: string, userId: string, page = 0, size = 50) {
     const app = await this.getApplicationAndValidate(appId, userId);
 
@@ -38,10 +107,7 @@ export class ChatService {
       .set({ read: true })
       .where(
         '"applicationId" = :appId AND "recipientId" = :uid AND read = false',
-        {
-          appId,
-          uid: userId,
-        },
+        { appId, uid: userId },
       )
       .execute();
 
