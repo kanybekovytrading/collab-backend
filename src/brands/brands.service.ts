@@ -26,15 +26,33 @@ export class BrandsService {
   }
 
   async findOne(userId: string) {
-    const b = await this.brandRepo.findOne({ where: { user: { id: userId } } });
+    const b = await this.brandRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
     if (!b) throw new NotFoundException('Brand not found');
     return this.format(b);
   }
 
   async update(userId: string, dto: any) {
-    const b = await this.brandRepo.findOne({ where: { user: { id: userId } } });
+    const b = await this.brandRepo.findOne({
+      where: { user: { id: userId } },
+      relations: ['user'],
+    });
     if (!b) throw new NotFoundException('Brand profile not found');
-    Object.assign(b, dto);
+
+    const { avatarUrl, fullName, city, country, ...brandFields } = dto;
+
+    if (avatarUrl !== undefined) b.user.avatarUrl = avatarUrl;
+    if (fullName !== undefined) b.user.fullName = fullName;
+    if (city !== undefined) b.user.city = city;
+    if (country !== undefined) b.user.country = country;
+
+    if (avatarUrl !== undefined || fullName !== undefined || city !== undefined || country !== undefined) {
+      await this.brandRepo.manager.save(b.user);
+    }
+
+    Object.assign(b, brandFields);
     await this.brandRepo.save(b);
     return this.format(b);
   }
@@ -46,6 +64,7 @@ export class BrandsService {
       companyName: b.companyName,
       avatarUrl: b.user?.avatarUrl,
       city: b.user?.city,
+      country: b.user?.country,
       verified: b.user?.verified,
       description: b.description,
       websiteUrl: b.websiteUrl,
