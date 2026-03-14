@@ -169,6 +169,29 @@ export class AuthService implements OnApplicationBootstrap {
     return { ...tokens, user: this.formatUser(user) };
   }
 
+  async seedAdmin() {
+    const adminEmail = 'admin@gmail.com';
+    const existing = await this.userRepo.findOne({ where: { email: adminEmail } });
+    if (existing) {
+      existing.roles = ['ADMIN' as any];
+      existing.currentRole = 'ADMIN';
+      existing.password = await bcrypt.hash('randomchik', 10);
+      await this.userRepo.save(existing);
+      return { message: 'Admin updated' };
+    }
+
+    const hashed = await bcrypt.hash('randomchik', 10);
+    const admin = this.userRepo.create({
+      fullName: 'Admin',
+      email: adminEmail,
+      password: hashed,
+      roles: ['ADMIN' as any],
+      currentRole: 'ADMIN',
+    });
+    await this.userRepo.save(admin);
+    return { message: 'Admin created' };
+  }
+
   async onApplicationBootstrap() {
     const adminEmail = 'admin@gmail.com';
     const existing = await this.userRepo.findOne({ where: { email: adminEmail } });

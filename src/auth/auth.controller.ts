@@ -46,8 +46,15 @@ export class AuthController {
   }
 
   @Public()
+  @Post('admin/seed')
+  @ApiOperation({ summary: 'Создать админа (только один раз)' })
+  async seedAdmin() {
+    return apiResponse(await this.authService.seedAdmin());
+  }
+
+  @Public()
   @Post('admin/login')
-  @ApiOperation({ summary: 'Вход как администратор (требует ADMIN_SECRET)' })
+  @ApiOperation({ summary: 'Вход как администратор' })
   async adminLogin(@Body() dto: AdminLoginDto) {
     return apiResponse(await this.authService.adminLogin(dto.email, dto.password));
   }
