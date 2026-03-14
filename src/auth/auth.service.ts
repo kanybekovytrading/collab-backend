@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  OnApplicationBootstrap,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,7 +16,7 @@ import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { RegisterDto, LoginDto, OAuthDto, InstagramLoginDto, Role } from './auth.dto';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements OnApplicationBootstrap {
   constructor(
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(BloggerProfile) private bloggerRepo: Repository<BloggerProfile>,
@@ -166,6 +167,23 @@ export class AuthService {
 
     const tokens = await this.generateTokens(user);
     return { ...tokens, user: this.formatUser(user) };
+  }
+
+  async onApplicationBootstrap() {
+    const adminEmail = 'admin@gmail.com';
+    const existing = await this.userRepo.findOne({ where: { email: adminEmail } });
+    if (existing) return;
+
+    const hashed = await bcrypt.hash('randomchik', 10);
+    const admin = this.userRepo.create({
+      fullName: 'Admin',
+      email: adminEmail,
+      password: hashed,
+      roles: ['ADMIN' as any],
+      currentRole: 'ADMIN',
+    });
+    await this.userRepo.save(admin);
+    console.log('[AuthService] Admin account created');
   }
 
   async adminLogin(email: string, password: string) {
