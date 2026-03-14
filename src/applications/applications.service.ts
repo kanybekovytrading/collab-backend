@@ -16,6 +16,7 @@ import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 import { User } from '../database/entities/user.entity';
+import { ChatMessage } from '../database/entities/chat-message.entity';
 
 @Injectable()
 export class ApplicationsService {
@@ -27,13 +28,22 @@ export class ApplicationsService {
     @InjectRepository(BrandProfile) private brandRepo: Repository<BrandProfile>,
     @InjectRepository(CompletionRecord)
     private completionRepo: Repository<CompletionRecord>,
+    @InjectRepository(ChatMessage) private msgRepo: Repository<ChatMessage>,
   ) {}
 
   async apply(
     user: User,
-    dto: { taskId: string; coverLetter?: string; proposedPrice?: number },
+    dto: {
+      taskId: string;
+      message?: string;
+      coverLetter?: string;
+      proposedPrice?: number;
+    },
   ) {
-    const task = await this.taskRepo.findOne({ where: { id: dto.taskId } });
+    const task = await this.taskRepo.findOne({
+      where: { id: dto.taskId },
+      relations: ['brand'],
+    });
     if (!task) throw new NotFoundException('Task not found');
     if (task.status !== TaskStatus.ACTIVE)
       throw new BadRequestException('Task is not active');
@@ -43,14 +53,28 @@ export class ApplicationsService {
     });
     if (existing) throw new ConflictException('Already applied to this task');
 
+    const firstMessage = dto.message || dto.coverLetter;
+
     const app = this.appRepo.create({
       blogger: user,
       task,
-      coverLetter: dto.coverLetter,
+      coverLetter: firstMessage,
       proposedPrice: dto.proposedPrice,
     });
     await this.appRepo.save(app);
-    return this.format(app);
+
+    // Автоматически отправляем первое сообщение в чат
+    if (firstMessage) {
+      const msg = this.msgRepo.create({
+        application: app,
+        sender: user,
+        recipient: { id: task.brand.id } as User,
+        content: firstMessage,
+      });
+      await this.msgRepo.save(msg);
+    }
+
+    return { ...this.format(app), chatId: app.id };
   }
 
   async invite(brandUser: User, dto: { taskId: string; bloggerId: string }) {

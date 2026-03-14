@@ -7,6 +7,7 @@ import { Task } from '../database/entities/task.entity';
 import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
+import { ChatMessage } from '../database/entities/chat-message.entity';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { CompletionRecord } from '../database/entities/completion-record.entity'
       BloggerProfile,
       BrandProfile,
       CompletionRecord,
+      ChatMessage,
     ]),
   ],
   controllers: [ApplicationsController],
