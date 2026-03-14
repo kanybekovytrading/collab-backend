@@ -71,7 +71,19 @@ export class BloggersService {
       relations: ['user'],
     });
     if (!b) throw new NotFoundException('Blogger profile not found');
-    Object.assign(b, dto);
+
+    const { avatarUrl, fullName, city, country, ...bloggerFields } = dto;
+
+    if (avatarUrl !== undefined) b.user.avatarUrl = avatarUrl;
+    if (fullName !== undefined) b.user.fullName = fullName;
+    if (city !== undefined) b.user.city = city;
+    if (country !== undefined) b.user.country = country;
+
+    if (avatarUrl !== undefined || fullName !== undefined || city !== undefined || country !== undefined) {
+      await this.bloggerRepo.manager.save(b.user);
+    }
+
+    Object.assign(b, bloggerFields);
     await this.bloggerRepo.save(b);
     return this.format(b);
   }
