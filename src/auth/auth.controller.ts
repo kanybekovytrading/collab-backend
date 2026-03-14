@@ -1,7 +1,7 @@
 import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, RefreshDto, OAuthDto, InstagramLoginDto } from './auth.dto';
+import { RegisterDto, LoginDto, RefreshDto, OAuthDto, InstagramLoginDto, AdminLoginDto } from './auth.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { apiResponse } from '../common/dto/api-response';
 
@@ -48,7 +48,7 @@ export class AuthController {
   @Public()
   @Post('admin/login')
   @ApiOperation({ summary: 'Вход как администратор (требует ADMIN_SECRET)' })
-  async adminLogin(@Body() dto: { email: string; password: string }) {
+  async adminLogin(@Body() dto: AdminLoginDto) {
     return apiResponse(await this.authService.adminLogin(dto.email, dto.password));
   }
 }

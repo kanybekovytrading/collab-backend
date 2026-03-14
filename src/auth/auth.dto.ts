@@ -35,3 +35,8 @@ export class InstagramLoginDto {
   @ApiProperty() @IsNotEmpty() @IsString() redirectUri: string;
   @ApiProperty({ enum: Role }) @IsEnum(Role) role: Role;
 }
+
+export class AdminLoginDto {
+  @ApiProperty({ example: 'admin@gmail.com' }) @IsEmail() email: string;
+  @ApiProperty({ example: 'randomchik' }) @IsNotEmpty() password: string;
+}
