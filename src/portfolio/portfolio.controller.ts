@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Put, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PortfolioService } from './portfolio.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -10,6 +10,13 @@ import { apiResponse } from '../common/dto/api-response';
 @Controller('')
 export class PortfolioController {
   constructor(private portfolioService: PortfolioService) {}
+
+  @Public()
+  @Get('portfolio/feed')
+  @ApiOperation({ summary: 'Лента портфолио для Discover (контент + блогер)' })
+  async getFeed(@Query() query: any) {
+    return apiResponse(await this.portfolioService.getFeed(query));
+  }
 
   @Public()
   @Get('bloggers/:userId/portfolio')
