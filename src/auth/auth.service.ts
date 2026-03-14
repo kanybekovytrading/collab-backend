@@ -168,6 +168,27 @@ export class AuthService {
     return { ...tokens, user: this.formatUser(user) };
   }
 
+  async adminLogin(email: string, password: string) {
+    const user = await this.userRepo.findOne({
+      where: { email },
+      select: ['id', 'fullName', 'email', 'phone', 'password', 'roles', 'currentRole', 'active', 'verified', 'avatarUrl'],
+    });
+    if (!user) throw new BadRequestException('Invalid email or password');
+
+    const valid = await bcrypt.compare(password, user.password);
+    if (!valid) throw new BadRequestException('Invalid email or password');
+
+    if (!user.roles.includes('ADMIN' as any)) {
+      throw new UnauthorizedException('Not an admin');
+    }
+
+    user.currentRole = 'ADMIN';
+    await this.userRepo.save(user);
+
+    const tokens = await this.generateTokens(user);
+    return { ...tokens, user: this.formatUser(user) };
+  }
+
   private async createProfile(user: User, role: string) {
     if (role === Role.BLOGGER || role === Role.AI_CREATOR) {
       const existing = await this.bloggerRepo.findOne({ where: { user: { id: user.id } } });

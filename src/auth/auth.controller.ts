@@ -44,4 +44,11 @@ export class AuthController {
   async instagram(@Body() dto: InstagramLoginDto) {
     return apiResponse(await this.authService.instagramLogin(dto));
   }
+
+  @Public()
+  @Post('admin/login')
+  @ApiOperation({ summary: 'Вход как администратор (требует ADMIN_SECRET)' })
+  async adminLogin(@Body() dto: { email: string; password: string }) {
+    return apiResponse(await this.authService.adminLogin(dto.email, dto.password));
+  }
 }
