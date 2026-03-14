@@ -39,6 +39,12 @@ let AuthController = class AuthController {
     async instagram(dto) {
         return (0, api_response_1.apiResponse)(await this.authService.instagramLogin(dto));
     }
+    async seedAdmin() {
+        return (0, api_response_1.apiResponse)(await this.authService.seedAdmin());
+    }
+    async adminLogin(dto) {
+        return (0, api_response_1.apiResponse)(await this.authService.adminLogin(dto.email, dto.password));
+    }
 };
 exports.AuthController = AuthController;
 __decorate([
@@ -86,6 +92,23 @@ __decorate([
     __metadata("design:paramtypes", [auth_dto_1.InstagramLoginDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "instagram", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('admin/seed'),
+    (0, swagger_1.ApiOperation)({ summary: 'Создать админа (только один раз)' }),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "seedAdmin", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Post)('admin/login'),
+    (0, swagger_1.ApiOperation)({ summary: 'Вход как администратор' }),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [auth_dto_1.AdminLoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "adminLogin", null);
 exports.AuthController = AuthController = __decorate([
     (0, swagger_1.ApiTags)('Auth'),
     (0, common_1.Controller)('auth'),

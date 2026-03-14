@@ -56,8 +56,9 @@ let ChatService = class ChatService {
             take: size,
         });
         return {
-            content: items.map(m => this.format(m)),
-            page, size,
+            content: items.map((m) => this.format(m)),
+            page,
+            size,
             totalElements: total,
             totalPages: Math.ceil(total / size),
             first: page === 0,

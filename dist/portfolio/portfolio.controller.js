@@ -25,6 +25,9 @@ let PortfolioController = class PortfolioController {
     constructor(portfolioService) {
         this.portfolioService = portfolioService;
     }
+    async getFeed(query) {
+        return (0, api_response_1.apiResponse)(await this.portfolioService.getFeed(query));
+    }
     async getPortfolio(userId) {
         return (0, api_response_1.apiResponse)(await this.portfolioService.getPortfolio(userId));
     }
@@ -40,6 +43,15 @@ let PortfolioController = class PortfolioController {
     }
 };
 exports.PortfolioController = PortfolioController;
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)('portfolio/feed'),
+    (0, swagger_1.ApiOperation)({ summary: 'Лента портфолио для Discover (контент + блогер)' }),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], PortfolioController.prototype, "getFeed", null);
 __decorate([
     (0, public_decorator_1.Public)(),
     (0, common_1.Get)('bloggers/:userId/portfolio'),

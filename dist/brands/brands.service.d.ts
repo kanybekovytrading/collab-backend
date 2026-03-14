@@ -10,6 +10,7 @@ export declare class BrandsService {
             companyName: string;
             avatarUrl: string;
             city: string;
+            country: string;
             verified: boolean;
             description: string;
             websiteUrl: string;
@@ -32,6 +33,7 @@ export declare class BrandsService {
         companyName: string;
         avatarUrl: string;
         city: string;
+        country: string;
         verified: boolean;
         description: string;
         websiteUrl: string;
@@ -47,6 +49,7 @@ export declare class BrandsService {
         companyName: string;
         avatarUrl: string;
         city: string;
+        country: string;
         verified: boolean;
         description: string;
         websiteUrl: string;
@@ -62,6 +65,7 @@ export declare class BrandsService {
         companyName: string;
         avatarUrl: string;
         city: string;
+        country: string;
         verified: boolean;
         description: string;
         websiteUrl: string;

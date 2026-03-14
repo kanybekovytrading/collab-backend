@@ -12,8 +12,9 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MediaService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
-const cloudinary_1 = require("cloudinary");
-const stream_1 = require("stream");
+const client_s3_1 = require("@aws-sdk/client-s3");
+const s3_request_presigner_1 = require("@aws-sdk/s3-request-presigner");
+const uuid_1 = require("uuid");
 const ALLOWED_TYPES = {
     USER_AVATAR: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
     TASK_COVER: { mimeTypes: ['image/'], maxBytes: 10 * 1024 * 1024 },
@@ -38,14 +39,49 @@ const FOLDERS = {
 };
 let MediaService = class MediaService {
     cfg;
+    s3;
+    bucket;
+    publicBase;
+    appUrl;
+    async onModuleInit() {
+        try {
+            await this.setBucketPublicPolicy();
+            console.log('[MediaService] bucket policy set to public read');
+        }
+        catch (e) {
+            console.warn('[MediaService] failed to set bucket policy:', e);
+        }
+    }
+    async setBucketPublicPolicy() {
+        const { PutBucketPolicyCommand } = await import('@aws-sdk/client-s3');
+        const policy = JSON.stringify({
+            Version: '2012-10-17',
+            Statement: [
+                {
+                    Sid: 'PublicReadGetObject',
+                    Effect: 'Allow',
+                    Principal: '*',
+                    Action: 's3:GetObject',
+                    Resource: `arn:aws:s3:::${this.bucket}/*`,
+                },
+            ],
+        });
+        await this.s3.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
+    }
     constructor(cfg) {
         this.cfg = cfg;
-        cloudinary_1.v2.config({
-            cloud_name: cfg.get('CLOUDINARY_CLOUD_NAME'),
-            api_key: cfg.get('CLOUDINARY_API_KEY'),
-            api_secret: cfg.get('CLOUDINARY_API_SECRET'),
-            secure: true,
+        const endpoint = cfg.getOrThrow('MINIO_ENDPOINT');
+        const accessKey = cfg.getOrThrow('MINIO_ACCESS_KEY');
+        const secretKey = cfg.getOrThrow('MINIO_SECRET_KEY');
+        this.bucket = cfg.getOrThrow('MINIO_BUCKET');
+        this.s3 = new client_s3_1.S3Client({
+            endpoint,
+            region: cfg.get('MINIO_REGION', 'auto'),
+            credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
+            forcePathStyle: true,
         });
+        this.publicBase = `${endpoint}/${this.bucket}`;
+        this.appUrl = cfg.getOrThrow('APP_URL');
     }
     async upload(type, entityId, file) {
         const typeConfig = ALLOWED_TYPES[type];
@@ -56,87 +92,97 @@ let MediaService = class MediaService {
             throw new common_1.BadRequestException(`File type ${file.mimetype} not allowed for ${type}`);
         if (file.size > typeConfig.maxBytes)
             throw new common_1.BadRequestException('File too large');
-        const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
-        const isVideo = file.mimetype.startsWith('video/');
-        const resourceType = isVideo ? 'video' : 'image';
-        const result = await this.uploadToCloudinary(file.buffer, {
-            folder,
-            resource_type: resourceType,
-            ...(isVideo && {
-                eager: [{ streaming_profile: 'full_hd', format: 'm3u8' }],
-                eager_async: true,
-                eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL'),
-            }),
-            ...(!isVideo && {
-                transformation: [{ quality: 'auto', fetch_format: 'auto' }],
-            }),
-        });
+        const ext = this.getExt(file.originalname, file.mimetype);
+        const key = `${FOLDERS[type] || type.toLowerCase()}/${entityId}/${(0, uuid_1.v4)()}${ext}`;
+        await this.s3.send(new client_s3_1.PutObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+            Body: file.buffer,
+            ContentType: file.mimetype,
+            ACL: 'public-read',
+        }));
         return {
-            fileId: result.public_id,
-            url: result.secure_url,
+            fileId: key,
+            url: `${this.appUrl}/api/v1/media/file?key=${key}`,
             hlsUrl: null,
-            status: isVideo ? 'processing' : 'ready',
+            status: 'ready',
             contentType: file.mimetype,
             sizeBytes: file.size,
         };
     }
-    getUploadSignature(type, entityId) {
+    async getPresignedUpload(type, entityId, contentType, sizeBytes) {
         const typeConfig = ALLOWED_TYPES[type];
         if (!typeConfig)
             throw new common_1.BadRequestException('Invalid upload type');
-        const folder = `collab/${FOLDERS[type] || type.toLowerCase()}/${entityId}`;
-        const timestamp = Math.floor(Date.now() / 1000);
-        const mightBeVideo = ['PORTFOLIO', 'WORK_SUBMISSION'].includes(type);
-        const paramsToSign = {
-            folder,
-            timestamp,
-            ...(mightBeVideo && {
-                eager: 'sp_full_hd/m3u8',
-                eager_async: 'true',
-                eager_notification_url: this.cfg.get('CLOUDINARY_WEBHOOK_URL') ?? '',
-            }),
-        };
-        const signature = cloudinary_1.v2.utils.api_sign_request(paramsToSign, this.cfg.get('CLOUDINARY_API_SECRET'));
+        const isAllowedMime = typeConfig.mimeTypes.some((m) => contentType.startsWith(m));
+        if (!isAllowedMime)
+            throw new common_1.BadRequestException(`File type ${contentType} not allowed for ${type}`);
+        if (sizeBytes > typeConfig.maxBytes)
+            throw new common_1.BadRequestException('File too large');
+        const ext = this.getMimeExt(contentType);
+        const key = `${FOLDERS[type] || type.toLowerCase()}/${entityId}/${(0, uuid_1.v4)()}${ext}`;
+        const EXPIRES = 300;
+        const command = new client_s3_1.PutObjectCommand({
+            Bucket: this.bucket,
+            Key: key,
+            ContentType: contentType,
+            ACL: 'public-read',
+        });
+        const uploadUrl = await (0, s3_request_presigner_1.getSignedUrl)(this.s3, command, {
+            expiresIn: EXPIRES,
+        });
         return {
-            signature,
-            timestamp,
-            apiKey: this.cfg.get('CLOUDINARY_API_KEY'),
-            cloudName: this.cfg.get('CLOUDINARY_CLOUD_NAME'),
-            folder,
-            eager: mightBeVideo ? 'sp_full_hd/m3u8' : undefined,
-            eagerAsync: mightBeVideo ? true : undefined,
-            eagerNotificationUrl: mightBeVideo
-                ? this.cfg.get('CLOUDINARY_WEBHOOK_URL')
-                : undefined,
+            uploadUrl,
+            publicUrl: `${this.appUrl}/api/v1/media/file?key=${key}`,
+            fileId: key,
+            expiresIn: EXPIRES,
         };
     }
-    handleVideoReady(publicId) {
-        const hlsUrl = cloudinary_1.v2.url(publicId, {
-            resource_type: 'video',
-            secure: true,
-            streaming_profile: 'full_hd',
-            format: 'm3u8',
-        });
-        return { fileId: publicId, hlsUrl };
+    async delete(fileId) {
+        await this.s3.send(new client_s3_1.DeleteObjectCommand({
+            Bucket: this.bucket,
+            Key: fileId,
+        }));
     }
-    getSignedUrl(publicId, resourceType = 'image') {
-        return cloudinary_1.v2.url(publicId, {
-            secure: true,
-            resource_type: resourceType,
-            sign_url: true,
-            expires_at: Math.floor(Date.now() / 1000) + 3600,
-        });
+    async exists(fileId) {
+        try {
+            await this.s3.send(new client_s3_1.HeadObjectCommand({ Bucket: this.bucket, Key: fileId }));
+            return true;
+        }
+        catch {
+            return false;
+        }
     }
-    uploadToCloudinary(buffer, options) {
-        return new Promise((resolve, reject) => {
-            const uploadStream = cloudinary_1.v2.uploader.upload_stream(options, (error, result) => {
-                if (error)
-                    reject(error);
-                else
-                    resolve(result);
-            });
-            stream_1.Readable.from(buffer).pipe(uploadStream);
+    getPublicUrl(fileId) {
+        return `${this.publicBase}/${fileId}`;
+    }
+    async getPresignedReadUrl(fileId, expiresIn = 3600) {
+        const command = new client_s3_1.GetObjectCommand({
+            Bucket: this.bucket,
+            Key: fileId,
         });
+        return (0, s3_request_presigner_1.getSignedUrl)(this.s3, command, { expiresIn });
+    }
+    getExt(filename, mimetype) {
+        const fromName = filename?.includes('.')
+            ? '.' + filename.split('.').pop().toLowerCase()
+            : null;
+        return fromName ?? this.getMimeExt(mimetype);
+    }
+    getMimeExt(mime) {
+        const map = {
+            'image/jpeg': '.jpg',
+            'image/jpg': '.jpg',
+            'image/png': '.png',
+            'image/gif': '.gif',
+            'image/webp': '.webp',
+            'image/heic': '.heic',
+            'video/mp4': '.mp4',
+            'video/quicktime': '.mov',
+            'video/webm': '.webm',
+            'video/x-m4v': '.m4v',
+        };
+        return map[mime] ?? '';
     }
 };
 exports.MediaService = MediaService;

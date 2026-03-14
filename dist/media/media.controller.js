@@ -16,16 +16,32 @@ exports.MediaController = void 0;
 const common_1 = require("@nestjs/common");
 const platform_express_1 = require("@nestjs/platform-express");
 const swagger_1 = require("@nestjs/swagger");
-const crypto_1 = require("crypto");
-const config_1 = require("@nestjs/config");
 const media_service_1 = require("./media.service");
 const api_response_1 = require("../common/dto/api-response");
+const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
+const public_decorator_1 = require("../common/decorators/public.decorator");
 let MediaController = class MediaController {
     mediaService;
-    cfg;
-    constructor(mediaService, cfg) {
+    constructor(mediaService) {
         this.mediaService = mediaService;
-        this.cfg = cfg;
+    }
+    async getFile(key) {
+        if (!key)
+            throw new common_1.BadRequestException('key is required');
+        const url = await this.mediaService.getPresignedReadUrl(key);
+        return { url, statusCode: 302 };
+    }
+    async presign(type, entityId, contentType, sizeBytes) {
+        if (!type)
+            throw new common_1.BadRequestException('type is required');
+        if (!entityId)
+            throw new common_1.BadRequestException('entityId is required');
+        if (!contentType)
+            throw new common_1.BadRequestException('contentType is required');
+        if (!sizeBytes)
+            throw new common_1.BadRequestException('sizeBytes is required');
+        const result = await this.mediaService.getPresignedUpload(type, entityId, contentType, Number(sizeBytes));
+        return (0, api_response_1.apiResponse)(result);
     }
     async upload(type, entityId, file) {
         if (!type)
@@ -36,45 +52,45 @@ let MediaController = class MediaController {
             throw new common_1.BadRequestException('file is required');
         return (0, api_response_1.apiResponse)(await this.mediaService.upload(type, entityId, file));
     }
-    signedUrl(fileId, resourceType = 'image') {
+    async delete(fileId) {
         if (!fileId)
             throw new common_1.BadRequestException('fileId is required');
-        return (0, api_response_1.apiResponse)(this.mediaService.getSignedUrl(fileId, resourceType));
-    }
-    getUploadSignature(type, entityId) {
-        if (!type)
-            throw new common_1.BadRequestException('type is required');
-        if (!entityId)
-            throw new common_1.BadRequestException('entityId is required');
-        return (0, api_response_1.apiResponse)(this.mediaService.getUploadSignature(type, entityId));
-    }
-    cloudinaryWebhook(body, signature, timestamp) {
-        this.verifyWebhookSignature(JSON.stringify(body), timestamp, signature);
-        if (body.notification_type === 'eager' && body.public_id) {
-            const data = this.mediaService.handleVideoReady(body.public_id);
-            console.log(`Video ready: ${data.fileId} → ${data.hlsUrl}`);
-        }
-        return { received: true };
-    }
-    verifyWebhookSignature(body, timestamp, signature) {
-        const apiSecret = this.cfg.get('CLOUDINARY_API_SECRET');
-        const expected = (0, crypto_1.createHmac)('sha256', apiSecret)
-            .update(body + timestamp)
-            .digest('hex');
-        if (expected !== signature) {
-            throw new common_1.BadRequestException('Invalid webhook signature');
-        }
-        const age = Math.floor(Date.now() / 1000) - parseInt(timestamp, 10);
-        if (age > 300) {
-            throw new common_1.BadRequestException('Webhook timestamp expired');
-        }
+        await this.mediaService.delete(fileId);
+        return (0, api_response_1.apiResponse)({ deleted: true });
     }
 };
 exports.MediaController = MediaController;
 __decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)('file'),
+    (0, common_1.Redirect)(),
+    (0, swagger_1.ApiOperation)({ summary: 'Получить файл по ключу (публичный редирект)' }),
+    (0, swagger_1.ApiQuery)({ name: 'key', example: 'portfolio/uuid/file.jpg' }),
+    __param(0, (0, common_1.Query)('key')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MediaController.prototype, "getFile", null);
+__decorate([
+    (0, common_1.Get)('presign'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Получить presigned URL для прямой загрузки на Tigris',
+    }),
+    (0, swagger_1.ApiQuery)({ name: 'type', example: 'PORTFOLIO' }),
+    (0, swagger_1.ApiQuery)({ name: 'entityId', example: 'user-uuid' }),
+    (0, swagger_1.ApiQuery)({ name: 'contentType', example: 'video/mp4' }),
+    (0, swagger_1.ApiQuery)({ name: 'sizeBytes', example: '15000000' }),
+    __param(0, (0, common_1.Query)('type')),
+    __param(1, (0, common_1.Query)('entityId')),
+    __param(2, (0, common_1.Query)('contentType')),
+    __param(3, (0, common_1.Query)('sizeBytes')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String, String]),
+    __metadata("design:returntype", Promise)
+], MediaController.prototype, "presign", null);
+__decorate([
     (0, common_1.Post)('upload'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Загрузить файл' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Загрузить файл через сервер (fallback)' }),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __param(0, (0, common_1.Query)('type')),
@@ -85,41 +101,18 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], MediaController.prototype, "upload", null);
 __decorate([
-    (0, common_1.Get)('signed-url'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({ summary: 'Получить подписанную ссылку на файл' }),
-    __param(0, (0, common_1.Query)('fileId')),
-    __param(1, (0, common_1.Query)('resourceType')),
+    (0, common_1.Delete)(':fileId'),
+    (0, swagger_1.ApiOperation)({ summary: 'Удалить файл из хранилища' }),
+    __param(0, (0, common_1.Param)('fileId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", void 0)
-], MediaController.prototype, "signedUrl", null);
-__decorate([
-    (0, common_1.Get)('sign'),
-    (0, swagger_1.ApiBearerAuth)(),
-    (0, swagger_1.ApiOperation)({
-        summary: 'Получить подпись для прямой загрузки на Cloudinary',
-    }),
-    __param(0, (0, common_1.Query)('type')),
-    __param(1, (0, common_1.Query)('entityId')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
-    __metadata("design:returntype", void 0)
-], MediaController.prototype, "getUploadSignature", null);
-__decorate([
-    (0, common_1.Post)('webhook'),
-    (0, swagger_1.ApiExcludeEndpoint)(),
-    __param(0, (0, common_1.Body)()),
-    __param(1, (0, common_1.Headers)('x-cld-signature')),
-    __param(2, (0, common_1.Headers)('x-cld-timestamp')),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String]),
-    __metadata("design:returntype", void 0)
-], MediaController.prototype, "cloudinaryWebhook", null);
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], MediaController.prototype, "delete", null);
 exports.MediaController = MediaController = __decorate([
     (0, swagger_1.ApiTags)('Media'),
     (0, common_1.Controller)('media'),
-    __metadata("design:paramtypes", [media_service_1.MediaService,
-        config_1.ConfigService])
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    (0, swagger_1.ApiBearerAuth)(),
+    __metadata("design:paramtypes", [media_service_1.MediaService])
 ], MediaController);
 //# sourceMappingURL=media.controller.js.map

@@ -1,4 +1,18 @@
 import { AdminService } from './admin.service';
+import { TaskStatus } from '../database/entities/task.entity';
+declare class VerifyTaskDto {
+    status: TaskStatus;
+}
+declare class BanUserDto {
+    active: boolean;
+    reason?: string;
+}
+declare class VerifyUserDto {
+    verified: boolean;
+}
+declare class DeleteTaskDto {
+    reason?: string;
+}
 export declare class AdminController {
     private adminService;
     constructor(adminService: AdminService);
@@ -28,10 +42,7 @@ export declare class AdminController {
         };
         errors: any;
     }>;
-    banUser(id: string, dto: {
-        active: boolean;
-        reason?: string;
-    }): Promise<{
+    banUser(id: string, dto: BanUserDto): Promise<{
         success: boolean;
         message: string;
         data: {
@@ -49,9 +60,7 @@ export declare class AdminController {
         };
         errors: any;
     }>;
-    verifyUser(id: string, dto: {
-        verified: boolean;
-    }): Promise<{
+    verifyUser(id: string, dto: VerifyUserDto): Promise<{
         success: boolean;
         message: string;
         data: {
@@ -78,7 +87,7 @@ export declare class AdminController {
                 title: string;
                 description: string;
                 taskType: import("../database/entities/task.entity").TaskType;
-                status: import("../database/entities/task.entity").TaskStatus;
+                status: TaskStatus;
                 brandName: string;
                 brandEmail: string;
                 createdAt: Date;
@@ -92,9 +101,7 @@ export declare class AdminController {
         };
         errors: any;
     }>;
-    verifyTask(id: string, dto: {
-        status: string;
-    }): Promise<{
+    verifyTask(id: string, dto: VerifyTaskDto): Promise<{
         success: boolean;
         message: string;
         data: {
@@ -102,7 +109,7 @@ export declare class AdminController {
             title: string;
             description: string;
             taskType: import("../database/entities/task.entity").TaskType;
-            status: import("../database/entities/task.entity").TaskStatus;
+            status: TaskStatus;
             brandName: string;
             brandEmail: string;
             createdAt: Date;
@@ -117,16 +124,14 @@ export declare class AdminController {
             title: string;
             description: string;
             taskType: import("../database/entities/task.entity").TaskType;
-            status: import("../database/entities/task.entity").TaskStatus;
+            status: TaskStatus;
             brandName: string;
             brandEmail: string;
             createdAt: Date;
         };
         errors: any;
     }>;
-    deleteTask(id: string, dto: {
-        reason?: string;
-    }): Promise<{
+    deleteTask(id: string, dto: DeleteTaskDto): Promise<{
         success: boolean;
         message: string;
         data: any;
@@ -148,3 +153,4 @@ export declare class AdminController {
         errors: any;
     }>;
 }
+export {};

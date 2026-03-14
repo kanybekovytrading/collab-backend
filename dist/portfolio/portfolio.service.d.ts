@@ -30,6 +30,56 @@ export declare class PortfolioService {
         thumbnailUrl: string;
         sortOrder: number;
     }[]>;
+    getFeed(query: {
+        contentType?: string;
+        category?: string;
+        platform?: string;
+        followersMin?: string;
+        followersMax?: string;
+        page?: string;
+        size?: string;
+    }): Promise<{
+        content: {
+            id: any;
+            mediaUrl: any;
+            thumbnailUrl: any;
+            contentType: any;
+            title: any;
+            createdAt: any;
+            blogger: {
+                id: any;
+                fullName: any;
+                avatarUrl: any;
+                categories: any;
+                socialAccounts: any;
+                rating: number;
+                completedTasksCount: any;
+            };
+        }[];
+        page: number;
+        size: number;
+        totalElements: number;
+        totalPages: number;
+        first: boolean;
+        last: boolean;
+    }>;
+    formatFeed(i: any): {
+        id: any;
+        mediaUrl: any;
+        thumbnailUrl: any;
+        contentType: any;
+        title: any;
+        createdAt: any;
+        blogger: {
+            id: any;
+            fullName: any;
+            avatarUrl: any;
+            categories: any;
+            socialAccounts: any;
+            rating: number;
+            completedTasksCount: any;
+        };
+    };
     format(i: PortfolioItem): {
         id: string;
         mediaUrl: string;

@@ -53,7 +53,11 @@ __decorate([
     __metadata("design:type", task_entity_1.Task)
 ], Application.prototype, "task", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.PENDING }),
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: ApplicationStatus,
+        default: ApplicationStatus.PENDING,
+    }),
     __metadata("design:type", String)
 ], Application.prototype, "status", void 0);
 __decorate([

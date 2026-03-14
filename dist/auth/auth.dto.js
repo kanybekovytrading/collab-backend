@@ -9,7 +9,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InstagramLoginDto = exports.OAuthDto = exports.RefreshDto = exports.LoginDto = exports.RegisterDto = exports.Role = void 0;
+exports.AdminLoginDto = exports.InstagramLoginDto = exports.OAuthDto = exports.RefreshDto = exports.LoginDto = exports.RegisterDto = exports.Role = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
 var Role;
@@ -118,4 +118,19 @@ __decorate([
     (0, class_validator_1.IsEnum)(Role),
     __metadata("design:type", String)
 ], InstagramLoginDto.prototype, "role", void 0);
+class AdminLoginDto {
+    email;
+    password;
+}
+exports.AdminLoginDto = AdminLoginDto;
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'admin@gmail.com' }),
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], AdminLoginDto.prototype, "email", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: 'randomchik' }),
+    (0, class_validator_1.IsNotEmpty)(),
+    __metadata("design:type", String)
+], AdminLoginDto.prototype, "password", void 0);
 //# sourceMappingURL=auth.dto.js.map

@@ -55,10 +55,14 @@ let ApplicationsService = class ApplicationsService {
         return this.format(app);
     }
     async invite(brandUser, dto) {
-        const task = await this.taskRepo.findOne({ where: { id: dto.taskId, brand: { id: brandUser.id } } });
+        const task = await this.taskRepo.findOne({
+            where: { id: dto.taskId, brand: { id: brandUser.id } },
+        });
         if (!task)
             throw new common_1.NotFoundException('Task not found or not yours');
-        const blogger = await this.bloggerRepo.findOne({ where: { user: { id: dto.bloggerId } } });
+        const blogger = await this.bloggerRepo.findOne({
+            where: { user: { id: dto.bloggerId } },
+        });
         if (!blogger)
             throw new common_1.NotFoundException('Blogger not found');
         const app = this.appRepo.create({
@@ -69,7 +73,9 @@ let ApplicationsService = class ApplicationsService {
         await this.appRepo.save(app);
     }
     async getByTask(brandUser, taskId, page = 0, size = 20) {
-        const task = await this.taskRepo.findOne({ where: { id: taskId, brand: { id: brandUser.id } } });
+        const task = await this.taskRepo.findOne({
+            where: { id: taskId, brand: { id: brandUser.id } },
+        });
         if (!task)
             throw new common_1.ForbiddenException('Not your task');
         const [items, total] = await this.appRepo.findAndCount({
@@ -79,7 +85,7 @@ let ApplicationsService = class ApplicationsService {
             skip: page * size,
             take: size,
         });
-        return this.paginate(items.map(a => this.format(a)), total, page, size);
+        return this.paginate(items.map((a) => this.format(a)), total, page, size);
     }
     async getMy(userId, page = 0, size = 20) {
         const [items, total] = await this.appRepo.findAndCount({
@@ -89,7 +95,7 @@ let ApplicationsService = class ApplicationsService {
             skip: page * size,
             take: size,
         });
-        return this.paginate(items.map(a => this.format(a)), total, page, size);
+        return this.paginate(items.map((a) => this.format(a)), total, page, size);
     }
     async accept(brandUser, id) {
         const app = await this.getApp(id);
@@ -120,7 +126,10 @@ let ApplicationsService = class ApplicationsService {
         const app = await this.getApp(id);
         if (app.blogger.id !== userId)
             throw new common_1.ForbiddenException('Not your application');
-        if (![application_entity_1.ApplicationStatus.IN_WORK, application_entity_1.ApplicationStatus.REVISION_REQUESTED].includes(app.status))
+        if (![
+            application_entity_1.ApplicationStatus.IN_WORK,
+            application_entity_1.ApplicationStatus.REVISION_REQUESTED,
+        ].includes(app.status))
             throw new common_1.BadRequestException('Invalid status for submission');
         app.status = application_entity_1.ApplicationStatus.SUBMITTED;
         app.workUrl = dto.workUrl;
@@ -178,13 +187,21 @@ let ApplicationsService = class ApplicationsService {
             revisionComment: a.revisionComment,
             revisionCount: a.revisionCount,
             createdAt: a.createdAt,
-            blogger: a.blogger ? { id: a.blogger.id, fullName: a.blogger.fullName, avatarUrl: a.blogger.avatarUrl } : null,
+            blogger: a.blogger
+                ? {
+                    id: a.blogger.id,
+                    fullName: a.blogger.fullName,
+                    avatarUrl: a.blogger.avatarUrl,
+                }
+                : null,
             task: a.task ? { id: a.task.id, title: a.task.title } : null,
         };
     }
     paginate(content, total, page, size) {
         return {
-            content, page, size,
+            content,
+            page,
+            size,
             totalElements: total,
             totalPages: Math.ceil(total / size),
             first: page === 0,

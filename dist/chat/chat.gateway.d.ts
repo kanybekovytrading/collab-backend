@@ -14,6 +14,7 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
     constructor(jwtService: JwtService, cfg: ConfigService, chatService: ChatService, userRepo: Repository<User>);
     handleConnection(client: Socket): Promise<void>;
     handleDisconnect(client: Socket): void;
+    handleJoin(client: Socket, appId: string): void;
     handleMessage(client: Socket, data: {
         applicationId: string;
         content: string;
@@ -32,5 +33,7 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
         recipientId: string;
         createdAt: Date;
     }>;
-    handleJoin(client: Socket, appId: string): void;
+    handleTyping(client: Socket, data: {
+        applicationId: string;
+    }): void;
 }

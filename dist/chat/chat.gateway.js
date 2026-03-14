@@ -35,8 +35,10 @@ let ChatGateway = class ChatGateway {
     }
     async handleConnection(client) {
         try {
-            const token = client.handshake.headers.authorization?.split(' ')[1];
+            const token = client.handshake.auth?.token ||
+                client.handshake.headers.authorization?.split(' ')[1];
             if (!token) {
+                console.log('[WS] No token, disconnecting', client.id);
                 client.disconnect();
                 return;
             }
@@ -45,27 +47,48 @@ let ChatGateway = class ChatGateway {
             });
             const user = await this.userRepo.findOne({ where: { id: payload.sub } });
             if (!user) {
+                console.log('[WS] User not found, disconnecting', client.id);
                 client.disconnect();
                 return;
             }
             client.user = user;
+            console.log('[WS] Connected:', user.id, user.fullName);
         }
-        catch {
+        catch (e) {
+            console.log('[WS] Auth error, disconnecting', client.id, e.message);
             client.disconnect();
         }
     }
     handleDisconnect(client) {
+        const user = client.user;
+        console.log('[WS] Disconnected:', user?.id ?? client.id);
+    }
+    handleJoin(client, appId) {
+        client.join(`chat:${appId}`);
+        console.log('[WS] User', client.user?.id, 'joined chat:', appId);
     }
     async handleMessage(client, data) {
         const user = client.user;
         if (!user)
             return;
-        const msg = await this.chatService.sendMessage(data.applicationId, user, data);
-        this.server.to(`chat:${data.applicationId}`).emit('message', msg);
-        return msg;
+        try {
+            const msg = await this.chatService.sendMessage(data.applicationId, user, data);
+            this.server.to(`chat:${data.applicationId}`).emit('message', msg);
+            return msg;
+        }
+        catch (e) {
+            console.error('[WS] handleMessage error:', e.message);
+            client.emit('error', { message: e.message });
+        }
     }
-    handleJoin(client, appId) {
-        client.join(`chat:${appId}`);
+    handleTyping(client, data) {
+        const user = client.user;
+        if (!user || !data?.applicationId)
+            return;
+        client.to(`chat:${data.applicationId}`).emit('typing', {
+            userId: user.id,
+            name: user.fullName,
+        });
     }
 };
 exports.ChatGateway = ChatGateway;
@@ -73,6 +96,14 @@ __decorate([
     (0, websockets_1.WebSocketServer)(),
     __metadata("design:type", socket_io_1.Server)
 ], ChatGateway.prototype, "server", void 0);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('join'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, String]),
+    __metadata("design:returntype", void 0)
+], ChatGateway.prototype, "handleJoin", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('chat'),
     __param(0, (0, websockets_1.ConnectedSocket)()),
@@ -82,13 +113,13 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleMessage", null);
 __decorate([
-    (0, websockets_1.SubscribeMessage)('join'),
+    (0, websockets_1.SubscribeMessage)('typing'),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, String]),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
-], ChatGateway.prototype, "handleJoin", null);
+], ChatGateway.prototype, "handleTyping", null);
 exports.ChatGateway = ChatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' }, namespace: '/ws' }),
     __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),

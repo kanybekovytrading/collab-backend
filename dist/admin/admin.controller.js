@@ -15,9 +15,49 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AdminController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const class_validator_1 = require("class-validator");
 const admin_service_1 = require("./admin.service");
 const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const api_response_1 = require("../common/dto/api-response");
+const task_entity_1 = require("../database/entities/task.entity");
+class VerifyTaskDto {
+    status;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ enum: task_entity_1.TaskStatus, example: task_entity_1.TaskStatus.ACTIVE }),
+    (0, class_validator_1.IsEnum)(task_entity_1.TaskStatus),
+    __metadata("design:type", String)
+], VerifyTaskDto.prototype, "status", void 0);
+class BanUserDto {
+    active;
+    reason;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: true }),
+    __metadata("design:type", Boolean)
+], BanUserDto.prototype, "active", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], BanUserDto.prototype, "reason", void 0);
+class VerifyUserDto {
+    verified;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ example: true }),
+    __metadata("design:type", Boolean)
+], VerifyUserDto.prototype, "verified", void 0);
+class DeleteTaskDto {
+    reason;
+}
+__decorate([
+    (0, swagger_1.ApiProperty)({ required: false }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], DeleteTaskDto.prototype, "reason", void 0);
 let AdminController = class AdminController {
     adminService;
     constructor(adminService) {
@@ -66,7 +106,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, BanUserDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "banUser", null);
 __decorate([
@@ -75,7 +115,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, VerifyUserDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "verifyUser", null);
 __decorate([
@@ -91,10 +131,11 @@ __decorate([
 ], AdminController.prototype, "getTasks", null);
 __decorate([
     (0, common_1.Put)('tasks/:id/verify'),
+    (0, swagger_1.ApiOperation)({ summary: 'Изменить статус задания' }),
     __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, VerifyTaskDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "verifyTask", null);
 __decorate([
@@ -111,7 +152,7 @@ __decorate([
     __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
     __param(1, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:paramtypes", [String, DeleteTaskDto]),
     __metadata("design:returntype", Promise)
 ], AdminController.prototype, "deleteTask", null);
 __decorate([

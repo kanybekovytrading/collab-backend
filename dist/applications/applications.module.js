@@ -21,7 +21,15 @@ let ApplicationsModule = class ApplicationsModule {
 exports.ApplicationsModule = ApplicationsModule;
 exports.ApplicationsModule = ApplicationsModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([application_entity_1.Application, task_entity_1.Task, blogger_profile_entity_1.BloggerProfile, brand_profile_entity_1.BrandProfile, completion_record_entity_1.CompletionRecord])],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([
+                application_entity_1.Application,
+                task_entity_1.Task,
+                blogger_profile_entity_1.BloggerProfile,
+                brand_profile_entity_1.BrandProfile,
+                completion_record_entity_1.CompletionRecord,
+            ]),
+        ],
         controllers: [applications_controller_1.ApplicationsController],
         providers: [applications_service_1.ApplicationsService],
         exports: [applications_service_1.ApplicationsService],

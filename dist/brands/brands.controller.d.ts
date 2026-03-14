@@ -13,6 +13,7 @@ export declare class BrandsController {
                 companyName: string;
                 avatarUrl: string;
                 city: string;
+                country: string;
                 verified: boolean;
                 description: string;
                 websiteUrl: string;
@@ -40,6 +41,7 @@ export declare class BrandsController {
             companyName: string;
             avatarUrl: string;
             city: string;
+            country: string;
             verified: boolean;
             description: string;
             websiteUrl: string;
@@ -60,6 +62,7 @@ export declare class BrandsController {
             companyName: string;
             avatarUrl: string;
             city: string;
+            country: string;
             verified: boolean;
             description: string;
             websiteUrl: string;

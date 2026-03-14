@@ -1,38 +1,29 @@
-import { ConfigService } from '@nestjs/config';
 import { MediaService } from './media.service';
 export declare class MediaController {
-    private mediaService;
-    private cfg;
-    constructor(mediaService: MediaService, cfg: ConfigService);
+    private readonly mediaService;
+    constructor(mediaService: MediaService);
+    getFile(key: string): Promise<{
+        url: string;
+        statusCode: number;
+    }>;
+    presign(type: string, entityId: string, contentType: string, sizeBytes: string): Promise<{
+        success: boolean;
+        message: string;
+        data: import("./media.service").PresignedUploadResult;
+        errors: any;
+    }>;
     upload(type: string, entityId: string, file: Express.Multer.File): Promise<{
         success: boolean;
         message: string;
         data: import("./media.service").UploadResult;
         errors: any;
     }>;
-    signedUrl(fileId: string, resourceType?: 'image' | 'video'): {
-        success: boolean;
-        message: string;
-        data: string;
-        errors: any;
-    };
-    getUploadSignature(type: string, entityId: string): {
+    delete(fileId: string): Promise<{
         success: boolean;
         message: string;
         data: {
-            signature: string;
-            timestamp: number;
-            apiKey: any;
-            cloudName: any;
-            folder: string;
-            eager: string;
-            eagerAsync: boolean;
-            eagerNotificationUrl: any;
+            deleted: boolean;
         };
         errors: any;
-    };
-    cloudinaryWebhook(body: any, signature: string, timestamp: string): {
-        received: boolean;
-    };
-    private verifyWebhookSignature;
+    }>;
 }

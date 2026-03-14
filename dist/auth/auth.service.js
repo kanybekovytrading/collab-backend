@@ -200,6 +200,61 @@ let AuthService = class AuthService {
         const tokens = await this.generateTokens(user);
         return { ...tokens, user: this.formatUser(user) };
     }
+    async seedAdmin() {
+        const adminEmail = 'admin@gmail.com';
+        const existing = await this.userRepo.findOne({ where: { email: adminEmail } });
+        if (existing) {
+            existing.roles = ['ADMIN'];
+            existing.currentRole = 'ADMIN';
+            existing.password = await bcrypt.hash('randomchik', 10);
+            await this.userRepo.save(existing);
+            return { message: 'Admin updated' };
+        }
+        const hashed = await bcrypt.hash('randomchik', 10);
+        const admin = this.userRepo.create({
+            fullName: 'Admin',
+            email: adminEmail,
+            password: hashed,
+            roles: ['ADMIN'],
+            currentRole: 'ADMIN',
+        });
+        await this.userRepo.save(admin);
+        return { message: 'Admin created' };
+    }
+    async onApplicationBootstrap() {
+        const adminEmail = 'admin@gmail.com';
+        const existing = await this.userRepo.findOne({ where: { email: adminEmail } });
+        if (existing)
+            return;
+        const hashed = await bcrypt.hash('randomchik', 10);
+        const admin = this.userRepo.create({
+            fullName: 'Admin',
+            email: adminEmail,
+            password: hashed,
+            roles: ['ADMIN'],
+            currentRole: 'ADMIN',
+        });
+        await this.userRepo.save(admin);
+        console.log('[AuthService] Admin account created');
+    }
+    async adminLogin(email, password) {
+        const user = await this.userRepo.findOne({
+            where: { email },
+            select: ['id', 'fullName', 'email', 'phone', 'password', 'roles', 'currentRole', 'active', 'verified', 'avatarUrl'],
+        });
+        if (!user)
+            throw new common_1.BadRequestException('Invalid email or password');
+        const valid = await bcrypt.compare(password, user.password);
+        if (!valid)
+            throw new common_1.BadRequestException('Invalid email or password');
+        if (!user.roles.includes('ADMIN')) {
+            throw new common_1.UnauthorizedException('Not an admin');
+        }
+        user.currentRole = 'ADMIN';
+        await this.userRepo.save(user);
+        const tokens = await this.generateTokens(user);
+        return { ...tokens, user: this.formatUser(user) };
+    }
     async createProfile(user, role) {
         if (role === auth_dto_1.Role.BLOGGER || role === auth_dto_1.Role.AI_CREATOR) {
             const existing = await this.bloggerRepo.findOne({ where: { user: { id: user.id } } });

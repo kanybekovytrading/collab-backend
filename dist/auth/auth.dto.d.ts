@@ -27,3 +27,7 @@ export declare class InstagramLoginDto {
     redirectUri: string;
     role: Role;
 }
+export declare class AdminLoginDto {
+    email: string;
+    password: string;
+}
