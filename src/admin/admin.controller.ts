@@ -8,10 +8,31 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiBearerAuth, ApiProperty } from '@nestjs/swagger';
+import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { AdminService } from './admin.service';
 import { Roles } from '../common/decorators/roles.decorator';
 import { apiResponse } from '../common/dto/api-response';
+import { TaskStatus } from '../database/entities/task.entity';
+
+class VerifyTaskDto {
+  @ApiProperty({ enum: TaskStatus, example: TaskStatus.ACTIVE })
+  @IsEnum(TaskStatus)
+  status: TaskStatus;
+}
+
+class BanUserDto {
+  @ApiProperty({ example: true }) active: boolean;
+  @ApiProperty({ required: false }) @IsOptional() @IsString() reason?: string;
+}
+
+class VerifyUserDto {
+  @ApiProperty({ example: true }) verified: boolean;
+}
+
+class DeleteTaskDto {
+  @ApiProperty({ required: false }) @IsOptional() @IsString() reason?: string;
+}
 
 @ApiTags('Admin')
 @ApiBearerAuth()
@@ -34,7 +55,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Заблокировать / разблокировать пользователя' })
   async banUser(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { active: boolean; reason?: string },
+    @Body() dto: BanUserDto,
   ) {
     return apiResponse(await this.adminService.banUser(id, dto.active));
   }
@@ -43,7 +64,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Верифицировать пользователя' })
   async verifyUser(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { verified: boolean },
+    @Body() dto: VerifyUserDto,
   ) {
     return apiResponse(await this.adminService.verifyUser(id, dto.verified));
   }
@@ -62,13 +83,12 @@ export class AdminController {
   }
 
   @Put('tasks/:id/verify')
+  @ApiOperation({ summary: 'Изменить статус задания' })
   async verifyTask(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { status: string }, // ← правильно
+    @Body() dto: VerifyTaskDto,
   ) {
-    return apiResponse(
-      await this.adminService.verifyTask(id, dto.status as any),
-    );
+    return apiResponse(await this.adminService.verifyTask(id, dto.status));
   }
 
   @Put('tasks/:id/restore')
@@ -81,7 +101,7 @@ export class AdminController {
   @ApiOperation({ summary: 'Удалить задание (модерация)' })
   async deleteTask(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: { reason?: string },
+    @Body() dto: DeleteTaskDto,
   ) {
     await this.adminService.deleteTask(id, dto.reason);
     return apiResponse(null, 'Task deleted');
