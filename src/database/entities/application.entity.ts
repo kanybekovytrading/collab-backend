@@ -33,7 +33,11 @@ export class Application {
   @JoinColumn()
   task: Task;
 
-  @Column({ type: 'enum', enum: ApplicationStatus, default: ApplicationStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: ApplicationStatus,
+    default: ApplicationStatus.PENDING,
+  })
   status: ApplicationStatus;
 
   @Column({ nullable: true, type: 'text' })

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+// chat.gateway.ts
 import {
   WebSocketGateway,
   WebSocketServer,
@@ -28,29 +30,50 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   async handleConnection(client: Socket) {
     try {
-      const token = client.handshake.headers.authorization?.split(' ')[1];
+      // ── Читаем токен из auth (socket.io-client передаёт через { auth: { token } })
+      // или из Authorization header как fallback
+      const token =
+        client.handshake.auth?.token ||
+        client.handshake.headers.authorization?.split(' ')[1];
+
       if (!token) {
+        console.log('[WS] No token, disconnecting', client.id);
         client.disconnect();
         return;
       }
+
       const payload = this.jwtService.verify(token, {
         secret: this.cfg.get('JWT_SECRET', 'secret'),
       });
+
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
       if (!user) {
+        console.log('[WS] User not found, disconnecting', client.id);
         client.disconnect();
         return;
       }
+
       (client as any).user = user;
-    } catch {
+      console.log('[WS] Connected:', user.id, user.fullName);
+    } catch (e) {
+      console.log('[WS] Auth error, disconnecting', client.id, e.message);
       client.disconnect();
     }
   }
 
   handleDisconnect(client: Socket) {
-    // cleanup if needed
+    const user = (client as any).user;
+    console.log('[WS] Disconnected:', user?.id ?? client.id);
   }
 
+  // ── Вступить в комнату чата ─────────────────────────────────────────────
+  @SubscribeMessage('join')
+  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() appId: string) {
+    client.join(`chat:${appId}`);
+    console.log('[WS] User', (client as any).user?.id, 'joined chat:', appId);
+  }
+
+  // ── Отправить сообщение ─────────────────────────────────────────────────
   @SubscribeMessage('chat')
   async handleMessage(
     @ConnectedSocket() client: Socket,
@@ -62,20 +85,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       attachmentType?: string;
     },
   ) {
-    const user = (client as any).user;
+    const user = (client as any).user as User;
     if (!user) return;
 
-    const msg = await this.chatService.sendMessage(
-      data.applicationId,
-      user,
-      data,
-    );
-    this.server.to(`chat:${data.applicationId}`).emit('message', msg);
-    return msg;
+    try {
+      const msg = await this.chatService.sendMessage(
+        data.applicationId,
+        user,
+        data,
+      );
+
+      // Отправляем всем в комнате (включая отправителя)
+      this.server.to(`chat:${data.applicationId}`).emit('message', msg);
+
+      // Возвращаем подтверждение отправителю (callback)
+      return msg;
+    } catch (e) {
+      console.error('[WS] handleMessage error:', e.message);
+      client.emit('error', { message: e.message });
+    }
   }
 
-  @SubscribeMessage('join')
-  handleJoin(@ConnectedSocket() client: Socket, @MessageBody() appId: string) {
-    client.join(`chat:${appId}`);
+  // ── Typing indicator ────────────────────────────────────────────────────
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { applicationId: string },
+  ) {
+    const user = (client as any).user as User;
+    if (!user || !data?.applicationId) return;
+
+    // Отправляем остальным участникам чата (не себе)
+    client.to(`chat:${data.applicationId}`).emit('typing', {
+      userId: user.id,
+      name: user.fullName,
+    });
   }
 }

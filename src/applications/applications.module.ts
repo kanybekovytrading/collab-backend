@@ -9,7 +9,15 @@ import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Application, Task, BloggerProfile, BrandProfile, CompletionRecord])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Application,
+      Task,
+      BloggerProfile,
+      BrandProfile,
+      CompletionRecord,
+    ]),
+  ],
   controllers: [ApplicationsController],
   providers: [ApplicationsService],
   exports: [ApplicationsService],

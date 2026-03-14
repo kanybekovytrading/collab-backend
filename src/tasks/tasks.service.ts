@@ -17,14 +17,22 @@ export class TasksService {
   ) {}
 
   async create(user: User, dto: any) {
-    if (user.currentRole !== Role.BRAND) throw new ForbiddenException('Only brands can create tasks');
+    if (user.currentRole !== Role.BRAND)
+      throw new ForbiddenException('Only brands can create tasks');
     const task = this.taskRepo.create({ ...dto, brand: user });
     await this.taskRepo.save(task);
     return this.format(task as unknown as Task);
   }
 
   async findAll(filters: any) {
-    const { taskType, city, acceptsUgc, acceptsAi, page = 0, size = 20 } = filters;
+    const {
+      taskType,
+      city,
+      acceptsUgc,
+      acceptsAi,
+      page = 0,
+      size = 20,
+    } = filters;
     const qb = this.taskRepo
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.brand', 'u')
@@ -32,16 +40,28 @@ export class TasksService {
 
     if (taskType) qb.andWhere('t.taskType = :taskType', { taskType });
     if (city) qb.andWhere('t.city ILIKE :city', { city: `%${city}%` });
-    if (acceptsUgc !== undefined) qb.andWhere('t.acceptsUgc = :ugc', { ugc: acceptsUgc === 'true' });
-    if (acceptsAi !== undefined) qb.andWhere('t.acceptsAi = :ai', { ai: acceptsAi === 'true' });
+    if (acceptsUgc !== undefined)
+      qb.andWhere('t.acceptsUgc = :ugc', { ugc: acceptsUgc === 'true' });
+    if (acceptsAi !== undefined)
+      qb.andWhere('t.acceptsAi = :ai', { ai: acceptsAi === 'true' });
 
-    qb.orderBy('t.createdAt', 'DESC').skip(page * size).take(size);
+    qb.orderBy('t.createdAt', 'DESC')
+      .skip(page * size)
+      .take(size);
     const [items, total] = await qb.getManyAndCount();
-    return this.paginate(items.map(t => this.format(t)), total, +page, +size);
+    return this.paginate(
+      items.map((t) => this.format(t)),
+      total,
+      +page,
+      +size,
+    );
   }
 
   async findOne(id: string) {
-    const t = await this.taskRepo.findOne({ where: { id }, relations: ['brand'] });
+    const t = await this.taskRepo.findOne({
+      where: { id },
+      relations: ['brand'],
+    });
     if (!t) throw new NotFoundException('Task not found');
     return this.format(t);
   }
@@ -54,11 +74,19 @@ export class TasksService {
       skip: page * size,
       take: size,
     });
-    return this.paginate(items.map(t => this.format(t)), total, page, size);
+    return this.paginate(
+      items.map((t) => this.format(t)),
+      total,
+      page,
+      size,
+    );
   }
 
   async delete(id: string, user: User) {
-    const task = await this.taskRepo.findOne({ where: { id }, relations: ['brand'] });
+    const task = await this.taskRepo.findOne({
+      where: { id },
+      relations: ['brand'],
+    });
     if (!task) throw new NotFoundException('Task not found');
     if (task.brand.id !== user.id && user.currentRole !== Role.ADMIN)
       throw new ForbiddenException('No permission');
@@ -100,7 +128,9 @@ export class TasksService {
 
   private paginate(content: any[], total: number, page: number, size: number) {
     return {
-      content, page, size,
+      content,
+      page,
+      size,
       totalElements: total,
       totalPages: Math.ceil(total / size),
       first: page === 0,

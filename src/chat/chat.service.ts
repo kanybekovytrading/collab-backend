@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ChatMessage } from '../database/entities/chat-message.entity';
@@ -18,7 +22,8 @@ export class ChatService {
       relations: ['blogger', 'task', 'task.brand'],
     });
     if (!app) throw new NotFoundException('Application not found');
-    const isParticipant = app.blogger.id === userId || app.task.brand.id === userId;
+    const isParticipant =
+      app.blogger.id === userId || app.task.brand.id === userId;
     if (!isParticipant) throw new ForbiddenException('Not a participant');
     return app;
   }
@@ -31,10 +36,13 @@ export class ChatService {
       .createQueryBuilder()
       .update(ChatMessage)
       .set({ read: true })
-      .where('"applicationId" = :appId AND "recipientId" = :uid AND read = false', {
-        appId,
-        uid: userId,
-      })
+      .where(
+        '"applicationId" = :appId AND "recipientId" = :uid AND read = false',
+        {
+          appId,
+          uid: userId,
+        },
+      )
       .execute();
 
     const [items, total] = await this.msgRepo.findAndCount({
@@ -46,8 +54,9 @@ export class ChatService {
     });
 
     return {
-      content: items.map(m => this.format(m)),
-      page, size,
+      content: items.map((m) => this.format(m)),
+      page,
+      size,
       totalElements: total,
       totalPages: Math.ceil(total / size),
       first: page === 0,

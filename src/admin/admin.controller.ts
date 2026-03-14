@@ -8,7 +8,12 @@ import {
   Put,
   Query,
 } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiProperty } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiProperty,
+} from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { AdminService } from './admin.service';
 import { Roles } from '../common/decorators/roles.decorator';

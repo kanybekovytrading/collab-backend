@@ -1,4 +1,13 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -34,7 +43,9 @@ export class TasksController {
     @Query('page') page = 0,
     @Query('size') size = 20,
   ) {
-    return apiResponse(await this.tasksService.findMyTasks(user.id, +page, +size));
+    return apiResponse(
+      await this.tasksService.findMyTasks(user.id, +page, +size),
+    );
   }
 
   @ApiBearerAuth()
@@ -48,7 +59,10 @@ export class TasksController {
   @ApiBearerAuth()
   @Delete(':id')
   @ApiOperation({ summary: 'Удалить задание' })
-  async delete(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: User) {
+  async delete(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: User,
+  ) {
     await this.tasksService.delete(id, user);
     return apiResponse(null, 'Task deleted');
   }
