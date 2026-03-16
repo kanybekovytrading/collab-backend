@@ -9,12 +9,14 @@ import { Repository } from 'typeorm';
 import { ChatMessage } from '../database/entities/chat-message.entity';
 import { Application } from '../database/entities/application.entity';
 import { User } from '../database/entities/user.entity';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ChatService {
   constructor(
     @InjectRepository(ChatMessage) private msgRepo: Repository<ChatMessage>,
     @InjectRepository(Application) private appRepo: Repository<Application>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private async getApplicationAndValidate(appId: string, userId: string) {
@@ -130,20 +132,32 @@ export class ChatService {
     };
   }
 
-  async sendMessage(appId: string, sender: User, dto: any) {
+  async sendMessage(
+    appId: string,
+    sender: User,
+    dto: { content?: string; attachmentUrl?: string; attachmentType?: string },
+  ) {
     const app = await this.getApplicationAndValidate(appId, sender.id);
-    const recipientId =
-      app.blogger.id === sender.id ? app.task.brand.id : app.blogger.id;
+    const recipient =
+      app.blogger.id === sender.id ? app.task.brand : app.blogger;
 
     const msg = this.msgRepo.create({
       application: app,
       sender,
-      recipient: { id: recipientId } as User,
+      recipient: { id: recipient.id } as User,
       content: dto.content,
       attachmentUrl: dto.attachmentUrl,
       attachmentType: dto.attachmentType,
     });
     await this.msgRepo.save(msg);
+
+    void this.notificationService.send(
+      recipient.fcmToken,
+      sender.fullName ?? 'Новое сообщение',
+      dto.content ?? '📎 Вложение',
+      { type: 'NEW_MESSAGE', appId },
+    );
+
     return this.format(msg);
   }
 

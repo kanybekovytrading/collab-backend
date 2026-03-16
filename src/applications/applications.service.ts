@@ -17,6 +17,8 @@ import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 import { User } from '../database/entities/user.entity';
 import { ChatMessage } from '../database/entities/chat-message.entity';
+import { PortfolioItem } from '../database/entities/portfolio-item.entity';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ApplicationsService {
@@ -29,6 +31,9 @@ export class ApplicationsService {
     @InjectRepository(CompletionRecord)
     private completionRepo: Repository<CompletionRecord>,
     @InjectRepository(ChatMessage) private msgRepo: Repository<ChatMessage>,
+    @InjectRepository(PortfolioItem)
+    private portfolioRepo: Repository<PortfolioItem>,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async apply(
@@ -73,6 +78,14 @@ export class ApplicationsService {
       });
       await this.msgRepo.save(msg);
     }
+
+    // Уведомить бренда о новом отклике
+    void this.notificationService.send(
+      task.brand.fcmToken,
+      'Новый отклик',
+      `${user.fullName ?? 'Блогер'} откликнулся на «${task.title}»`,
+      { type: 'NEW_APPLICATION', appId: app.id },
+    );
 
     return { ...this.format(app), chatId: app.id };
   }
@@ -141,6 +154,13 @@ export class ApplicationsService {
       throw new BadRequestException('Application is not PENDING');
     app.status = ApplicationStatus.IN_WORK;
     await this.appRepo.save(app);
+
+    void this.notificationService.send(
+      app.blogger.fcmToken,
+      'Заявка принята',
+      `Бренд принял вашу заявку на «${app.task.title}»`,
+      { type: 'APPLICATION_ACCEPTED', appId: app.id },
+    );
   }
 
   async reject(brandUser: User, id: string) {
@@ -149,6 +169,13 @@ export class ApplicationsService {
       throw new ForbiddenException('Not your task');
     app.status = ApplicationStatus.REJECTED;
     await this.appRepo.save(app);
+
+    void this.notificationService.send(
+      app.blogger.fcmToken,
+      'Заявка отклонена',
+      `Ваша заявка на «${app.task.title}» была отклонена`,
+      { type: 'APPLICATION_REJECTED', appId: app.id },
+    );
   }
 
   async cancel(user: User, id: string) {
@@ -179,6 +206,13 @@ export class ApplicationsService {
     app.status = ApplicationStatus.SUBMITTED;
     app.workUrl = dto.workUrl;
     await this.appRepo.save(app);
+
+    void this.notificationService.send(
+      app.task.brand.fcmToken,
+      'Работа сдана',
+      `${app.blogger.fullName ?? 'Блогер'} сдал работу по «${app.task.title}»`,
+      { type: 'WORK_SUBMITTED', appId: app.id },
+    );
   }
 
   async requestRevision(
@@ -193,6 +227,13 @@ export class ApplicationsService {
     app.revisionComment = dto.comment;
     app.revisionCount++;
     await this.appRepo.save(app);
+
+    void this.notificationService.send(
+      app.blogger.fcmToken,
+      'Нужна доработка',
+      `Бренд запросил доработку по «${app.task.title}»`,
+      { type: 'REVISION_REQUESTED', appId: app.id },
+    );
   }
 
   async approve(brandUser: User, id: string) {
@@ -223,6 +264,29 @@ export class ApplicationsService {
       .set({ tasksCount: () => '"tasksCount" + 1' })
       .where('"userId" = :uid', { uid: app.task.brand.id })
       .execute();
+
+    void this.notificationService.send(
+      app.blogger.fcmToken,
+      'Работа принята! 🎉',
+      `Бренд принял вашу работу по «${app.task.title}». Оставьте отзыв!`,
+      { type: 'WORK_APPROVED', appId: app.id },
+    );
+
+    // Авто-добавление в портфолио блогера
+    if (app.workUrl) {
+      const blogger = await this.bloggerRepo.findOne({
+        where: { user: { id: app.blogger.id } },
+      });
+      if (blogger) {
+        const item = this.portfolioRepo.create({
+          blogger,
+          mediaUrl: app.workUrl,
+          title: app.task.title,
+          contentType: app.task.taskType,
+        });
+        await this.portfolioRepo.save(item);
+      }
+    }
   }
 
   private async getApp(id: string) {

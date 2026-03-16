@@ -8,6 +8,7 @@ import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 import { ChatMessage } from '../database/entities/chat-message.entity';
+import { PortfolioItem } from '../database/entities/portfolio-item.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { ChatMessage } from '../database/entities/chat-message.entity';
       BrandProfile,
       CompletionRecord,
       ChatMessage,
+      PortfolioItem,
     ]),
   ],
   controllers: [ApplicationsController],

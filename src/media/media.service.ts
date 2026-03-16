@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, OnModuleInit } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   S3Client,
@@ -56,59 +56,26 @@ export interface PresignedUploadResult {
 // ─── Сервис ───────────────────────────────────────────────────────────────────
 
 @Injectable()
-export class MediaService implements OnModuleInit {
+export class MediaService {
   private readonly s3: S3Client;
   private readonly bucket: string;
   private readonly publicBase: string;
-  private readonly appUrl: string;
-
-  async onModuleInit() {
-    try {
-      await this.setBucketPublicPolicy();
-      console.log('[MediaService] bucket policy set to public read');
-    } catch (e) {
-      console.warn('[MediaService] failed to set bucket policy:', e);
-    }
-  }
-
-  private async setBucketPublicPolicy() {
-    const { PutBucketPolicyCommand } = await import('@aws-sdk/client-s3');
-    const policy = JSON.stringify({
-      Version: '2012-10-17',
-      Statement: [
-        {
-          Sid: 'PublicReadGetObject',
-          Effect: 'Allow',
-          Principal: '*',
-          Action: 's3:GetObject',
-          Resource: `arn:aws:s3:::${this.bucket}/*`,
-        },
-      ],
-    });
-    await this.s3.send(
-      new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }),
-    );
-  }
 
   constructor(private cfg: ConfigService) {
-    const endpoint = cfg.getOrThrow<string>('MINIO_ENDPOINT'); // https://t3.storageapi.dev
+    const endpoint = cfg.getOrThrow<string>('MINIO_ENDPOINT');
     const accessKey = cfg.getOrThrow<string>('MINIO_ACCESS_KEY');
     const secretKey = cfg.getOrThrow<string>('MINIO_SECRET_KEY');
-    this.bucket = cfg.getOrThrow<string>('MINIO_BUCKET'); // spacious-locker-mwfnscgh3
+    this.bucket = cfg.getOrThrow<string>('MINIO_BUCKET');
 
     this.s3 = new S3Client({
       endpoint,
       region: cfg.get<string>('MINIO_REGION', 'auto'),
       credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
-      forcePathStyle: true, // обязательно для Tigris
+      forcePathStyle: true,
     });
 
-    // Публичный базовый URL для отдачи файлов
-    // Формат: https://<bucket>.t3.storageapi.dev  (virtual-hosted style)
-    // Или path-style: https://t3.storageapi.dev/<bucket>
-    // Tigris рекомендует virtual-hosted, но для auto-region используем path-style
-    this.publicBase = `${endpoint}/${this.bucket}`;
-    this.appUrl = cfg.getOrThrow<string>('APP_URL'); // https://collab-backend-production-c5de.up.railway.app
+    // Cloudflare R2 публичный URL (pub-xxx.r2.dev или кастомный домен)
+    this.publicBase = cfg.getOrThrow<string>('R2_PUBLIC_URL');
   }
 
   // ── Прямая загрузка через сервер (мультипарт) ────────────────────────────
@@ -140,14 +107,12 @@ export class MediaService implements OnModuleInit {
         Key: key,
         Body: file.buffer,
         ContentType: file.mimetype,
-        // Публичный доступ на чтение
-        ACL: 'public-read',
       }),
     );
 
     return {
       fileId: key,
-      url: `${this.appUrl}/api/v1/media/file?key=${key}`,
+      url: `${this.publicBase}/${key}`,
       hlsUrl: null,
       status: 'ready',
       contentType: file.mimetype,
@@ -184,7 +149,6 @@ export class MediaService implements OnModuleInit {
       Bucket: this.bucket,
       Key: key,
       ContentType: contentType,
-      ACL: 'public-read',
     });
 
     const uploadUrl = await getSignedUrl(this.s3, command, {
@@ -193,7 +157,7 @@ export class MediaService implements OnModuleInit {
 
     return {
       uploadUrl,
-      publicUrl: `${this.appUrl}/api/v1/media/file?key=${key}`,
+      publicUrl: `${this.publicBase}/${key}`,
       fileId: key,
       expiresIn: EXPIRES,
     };

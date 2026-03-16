@@ -14,6 +14,7 @@ import { BloggersModule } from './bloggers/bloggers.module';
 import { BrandsModule } from './brands/brands.module';
 import { PortfolioModule } from './portfolio/portfolio.module';
 import { DeviceModule } from './device/device.module';
+import { NotificationModule } from './notifications/notification.module';
 import { databaseEntities } from './database/entities';
 
 @Module({
@@ -60,6 +61,7 @@ import { databaseEntities } from './database/entities';
     BrandsModule,
     PortfolioModule,
     DeviceModule,
+    NotificationModule,
   ],
 })
 export class AppModule {}
