@@ -75,9 +75,13 @@ export class PortfolioService {
       .leftJoinAndSelect('blogger.user', 'user')
       .where('item.mediaUrl IS NOT NULL')
       .andWhere('user.active = true')
-      .orderBy('item.createdAt', 'DESC')
-      .skip(page * size)
-      .take(size);
+      // Блогер должен иметь хотя бы одну соцсеть
+      .andWhere(`blogger."socialAccounts" IS NOT NULL AND jsonb_array_length(blogger."socialAccounts") > 0`)
+      // Приоритет: видео выше фото, потом completedTasksCount, потом рейтинг, потом свежесть
+      .orderBy(`CASE WHEN UPPER(item.contentType) = 'VIDEO' THEN 0 ELSE 1 END`, 'ASC')
+      .addOrderBy('blogger.completedTasksCount', 'DESC')
+      .addOrderBy('blogger.rating', 'DESC')
+      .addOrderBy('item.createdAt', 'DESC');
 
     if (query.contentType) {
       qb.andWhere('UPPER(item.contentType) = :ct', {
@@ -107,10 +111,69 @@ export class PortfolioService {
       );
     }
 
-    const [items, total] = await qb.getManyAndCount();
+    const allItems = await qb.getMany();
+
+    // Не более 3 работ от одного блогера
+    const bloggerCount: Record<string, number> = {};
+    const filteredItems = allItems.filter((item) => {
+      const bloggerId = item.blogger?.id;
+      if (!bloggerId) return false;
+      bloggerCount[bloggerId] = (bloggerCount[bloggerId] ?? 0) + 1;
+      return bloggerCount[bloggerId] <= 3;
+    });
+
+    // Блогеры-новички — есть соцсети, но нет портфолио
+    const bloggersWithPortfolio = new Set(Object.keys(bloggerCount));
+
+    const newbieQb = this.bloggerRepo
+      .createQueryBuilder('blogger')
+      .leftJoinAndSelect('blogger.user', 'user')
+      .where('user.active = true')
+      .andWhere(`blogger."socialAccounts" IS NOT NULL AND jsonb_array_length(blogger."socialAccounts") > 0`)
+      .andWhere(
+        `NOT EXISTS (SELECT 1 FROM portfolio_items pi WHERE pi."bloggerId" = blogger.id)`,
+      )
+      .orderBy('blogger.createdAt', 'DESC');
+
+    if (query.category) {
+      newbieQb.andWhere(':cat = ANY(string_to_array(blogger.categories, \',\'))', {
+        cat: query.category,
+      });
+    }
+
+    if (query.platform) {
+      newbieQb.andWhere(
+        `EXISTS (SELECT 1 FROM jsonb_array_elements(blogger."socialAccounts") AS sa WHERE sa->>'platform' = :platform)`,
+        { platform: query.platform.toUpperCase() },
+      );
+    }
+
+    const newbies = query.contentType
+      ? []
+      : (await newbieQb.getMany()).filter((b) => !bloggersWithPortfolio.has(b.id));
+
+    // Объединяем: каждые 5 portfolio items вставляем 1 blogger card
+    const merged: { type: 'PORTFOLIO_ITEM' | 'BLOGGER_CARD'; data: any }[] = [];
+    let newbieIdx = 0;
+    for (let i = 0; i < filteredItems.length; i++) {
+      if (i > 0 && i % 5 === 0 && newbieIdx < newbies.length) {
+        merged.push({ type: 'BLOGGER_CARD', data: newbies[newbieIdx++] });
+      }
+      merged.push({ type: 'PORTFOLIO_ITEM', data: filteredItems[i] });
+    }
+    while (newbieIdx < newbies.length) {
+      merged.push({ type: 'BLOGGER_CARD', data: newbies[newbieIdx++] });
+    }
+
+    const total = merged.length;
+    const content = merged.slice(page * size, (page + 1) * size);
 
     return {
-      content: items.map((i) => this.formatFeed(i)),
+      content: content.map((entry) =>
+        entry.type === 'PORTFOLIO_ITEM'
+          ? this.formatFeed(entry.data)
+          : this.formatBloggerCard(entry.data),
+      ),
       page,
       size,
       totalElements: total,
@@ -122,6 +185,7 @@ export class PortfolioService {
 
   formatFeed(i: any) {
     return {
+      type: 'PORTFOLIO_ITEM',
       id: i.id,
       mediaUrl: i.mediaUrl,
       thumbnailUrl: i.thumbnailUrl,
@@ -136,6 +200,23 @@ export class PortfolioService {
         socialAccounts: i.blogger?.socialAccounts || [],
         rating: Number(i.blogger?.rating ?? 0),
         completedTasksCount: i.blogger?.completedTasksCount ?? 0,
+      },
+    };
+  }
+
+  formatBloggerCard(b: any) {
+    return {
+      type: 'BLOGGER_CARD',
+      id: b.id,
+      blogger: {
+        id: b.user?.id,
+        fullName: b.user?.fullName,
+        avatarUrl: b.user?.avatarUrl,
+        bio: b.bio,
+        categories: b.categories,
+        socialAccounts: b.socialAccounts || [],
+        rating: Number(b.rating ?? 0),
+        completedTasksCount: b.completedTasksCount ?? 0,
       },
     };
   }
