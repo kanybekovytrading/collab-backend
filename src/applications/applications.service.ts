@@ -271,22 +271,6 @@ export class ApplicationsService {
       `Бренд принял вашу работу по «${app.task.title}». Оставьте отзыв!`,
       { type: 'WORK_APPROVED', appId: app.id },
     );
-
-    // Авто-добавление в портфолио блогера
-    if (app.workUrl) {
-      const blogger = await this.bloggerRepo.findOne({
-        where: { user: { id: app.blogger.id } },
-      });
-      if (blogger) {
-        const item = this.portfolioRepo.create({
-          blogger,
-          mediaUrl: app.workUrl,
-          title: app.task.title,
-          contentType: app.task.taskType,
-        });
-        await this.portfolioRepo.save(item);
-      }
-    }
   }
 
   async autoCompleteSubmitted() {

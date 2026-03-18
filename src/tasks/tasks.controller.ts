@@ -28,13 +28,6 @@ export class TasksController {
     return apiResponse(await this.tasksService.findAll(query));
   }
 
-  @Public()
-  @Get(':id')
-  @ApiOperation({ summary: 'Детали задания по ID' })
-  async getOne(@Param('id', ParseUUIDPipe) id: string) {
-    return apiResponse(await this.tasksService.findOne(id));
-  }
-
   @ApiBearerAuth()
   @Get('my')
   @ApiOperation({ summary: 'Мои задания (для бренда)' })
@@ -46,6 +39,13 @@ export class TasksController {
     return apiResponse(
       await this.tasksService.findMyTasks(user.id, +page, +size),
     );
+  }
+
+  @Public()
+  @Get(':id')
+  @ApiOperation({ summary: 'Детали задания по ID' })
+  async getOne(@Param('id', ParseUUIDPipe) id: string) {
+    return apiResponse(await this.tasksService.findOne(id));
   }
 
   @ApiBearerAuth()
