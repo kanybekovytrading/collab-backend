@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
+import { ApplicationsScheduler } from './applications.scheduler';
 import { Application } from '../database/entities/application.entity';
 import { Task } from '../database/entities/task.entity';
 import { BloggerProfile } from '../database/entities/blogger-profile.entity';
@@ -23,7 +24,7 @@ import { PortfolioItem } from '../database/entities/portfolio-item.entity';
     ]),
   ],
   controllers: [ApplicationsController],
-  providers: [ApplicationsService],
+  providers: [ApplicationsService, ApplicationsScheduler],
   exports: [ApplicationsService],
 })
 export class ApplicationsModule {}

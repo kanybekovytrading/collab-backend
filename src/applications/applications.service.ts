@@ -289,6 +289,54 @@ export class ApplicationsService {
     }
   }
 
+  async autoCompleteSubmitted() {
+    const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+    const apps = await this.appRepo.find({
+      where: { status: ApplicationStatus.SUBMITTED },
+      relations: ['blogger', 'task', 'task.brand'],
+    });
+
+    const stale = apps.filter((a) => a.updatedAt < threeDaysAgo);
+
+    for (const app of stale) {
+      app.status = ApplicationStatus.COMPLETED;
+      await this.appRepo.save(app);
+
+      const rec = this.completionRepo.create({ application: app });
+      await this.completionRepo.save(rec);
+
+      await this.bloggerRepo
+        .createQueryBuilder()
+        .update(BloggerProfile)
+        .set({ completedTasksCount: () => '"completedTasksCount" + 1' })
+        .where('"userId" = :uid', { uid: app.blogger.id })
+        .execute();
+
+      await this.brandRepo
+        .createQueryBuilder()
+        .update(BrandProfile)
+        .set({ tasksCount: () => '"tasksCount" + 1' })
+        .where('"userId" = :uid', { uid: app.task.brand.id })
+        .execute();
+
+      void this.notificationService.send(
+        app.blogger.fcmToken,
+        'Работа автоматически принята ✅',
+        `Бренд не ответил 3 дня — работа по «${app.task.title}» засчитана. Оставьте отзыв!`,
+        { type: 'WORK_APPROVED', appId: app.id },
+      );
+
+      void this.notificationService.send(
+        app.task.brand.fcmToken,
+        'Работа автоматически завершена',
+        `Вы не проверили работу по «${app.task.title}» — она засчитана автоматически. Оставьте отзыв!`,
+        { type: 'WORK_APPROVED', appId: app.id },
+      );
+    }
+
+    return stale.length;
+  }
+
   private async getApp(id: string) {
     const app = await this.appRepo.findOne({
       where: { id },
@@ -303,7 +351,7 @@ export class ApplicationsService {
       id: a.id,
       status: a.status,
       coverLetter: a.coverLetter,
-      proposedPrice: a.proposedPrice,
+      proposedPrice: a.proposedPrice != null ? Number(a.proposedPrice) : null,
       invited: a.invited,
       workUrl: a.workUrl,
       revisionComment: a.revisionComment,

@@ -104,7 +104,7 @@ export class TasksService {
       city: t.city,
       online: t.online,
       deadlineDays: t.deadlineDays,
-      price: t.price,
+      price: t.price != null ? Number(t.price) : null,
       priceDescription: t.priceDescription,
       status: t.status,
       reactionsCount: t.reactionsCount,
