@@ -107,6 +107,13 @@ export class ApplicationsService {
       invited: true,
     });
     await this.appRepo.save(app);
+
+    void this.notificationService.send(
+      blogger.user.fcmToken,
+      'Вас пригласили на задание',
+      `Бренд «${brandUser.fullName ?? 'Бренд'}» приглашает вас на «${task.title}»`,
+      { type: 'INVITE', appId: app.id },
+    );
   }
 
   async getByTask(brandUser: User, taskId: string, page = 0, size = 20) {
