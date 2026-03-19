@@ -3,18 +3,18 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatService } from './chat.service';
+import { OnlineStatusService } from './online-status.service';
 import { Repository } from 'typeorm';
 import { User } from '../database/entities/user.entity';
-import type { Cache } from 'cache-manager';
 export declare class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private jwtService;
     private cfg;
     private chatService;
+    private onlineStatus;
     private userRepo;
-    private cacheManager;
     server: Server;
     private typingTimers;
-    constructor(jwtService: JwtService, cfg: ConfigService, chatService: ChatService, userRepo: Repository<User>, cacheManager: Cache);
+    constructor(jwtService: JwtService, cfg: ConfigService, chatService: ChatService, onlineStatus: OnlineStatusService, userRepo: Repository<User>);
     handleConnection(client: Socket): Promise<void>;
     handleDisconnect(client: Socket): Promise<void>;
     handleJoin(client: Socket, data: {
@@ -45,7 +45,5 @@ export declare class ChatGateway implements OnGatewayConnection, OnGatewayDiscon
     handleTyping(client: Socket, data: {
         applicationId: string;
     }): void;
-    handlePing(client: Socket & {
-        user?: User;
-    }): Promise<void>;
+    handlePing(client: Socket): void;
 }

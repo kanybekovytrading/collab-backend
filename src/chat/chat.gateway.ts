@@ -9,16 +9,14 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
 } from '@nestjs/websockets';
-import { Inject } from '@nestjs/common';
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { ChatService } from './chat.service';
+import { OnlineStatusService } from './online-status.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../database/entities/user.entity';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/ws' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -30,8 +28,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private jwtService: JwtService,
     private cfg: ConfigService,
     private chatService: ChatService,
+    private onlineStatus: OnlineStatusService,
     @InjectRepository(User) private userRepo: Repository<User>,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -40,23 +38,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.handshake.auth?.token ||
         client.handshake.headers.authorization?.split(' ')[1];
 
-      if (!token) {
-        client.disconnect();
-        return;
-      }
+      if (!token) { client.disconnect(); return; }
 
       const payload = this.jwtService.verify(token, {
         secret: this.cfg.get('JWT_SECRET', 'secret'),
       });
 
       const user = await this.userRepo.findOne({ where: { id: payload.sub } });
-      if (!user) {
-        client.disconnect();
-        return;
-      }
+      if (!user) { client.disconnect(); return; }
 
       (client as any).user = user;
-      await this.cacheManager.set(`online:${user.id}`, true, 30000);
+      this.onlineStatus.setOnline(user.id);
       client.broadcast.emit('user:online', { userId: user.id });
       console.log('[WS] Connected:', user.id, user.fullName);
     } catch {
@@ -67,7 +59,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleDisconnect(client: Socket) {
     const user = (client as any).user as User;
     if (user) {
-      await this.cacheManager.del(`online:${user.id}`);
+      this.onlineStatus.setOffline(user.id);
       await this.userRepo.update(user.id, { lastSeenAt: new Date() });
       client.broadcast.emit('user:offline', {
         userId: user.id,
@@ -77,7 +69,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log('[WS] Disconnected:', user?.id ?? client.id);
   }
 
-  // ── Вступить в комнату чата ─────────────────────────────────────────────
   @SubscribeMessage('join')
   async handleJoin(
     @ConnectedSocket() client: Socket,
@@ -85,7 +76,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const appId = typeof data === 'string' ? data : data.applicationId;
     const user = (client as any).user as User;
-
     client.join(`chat:${appId}`);
     console.log('[WS] User', user?.id, 'joined chat:', appId);
 
@@ -99,12 +89,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // ── Отправить сообщение ─────────────────────────────────────────────────
   @SubscribeMessage('chat')
   async handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody()
-    data: {
+    @MessageBody() data: {
       applicationId: string;
       content: string;
       attachmentUrl?: string;
@@ -113,14 +101,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const user = (client as any).user as User;
     if (!user) return;
-
     try {
-      const msg = await this.chatService.sendMessage(
-        data.applicationId,
-        user,
-        data,
-      );
-
+      const msg = await this.chatService.sendMessage(data.applicationId, user, data);
       this.server.to(`chat:${data.applicationId}`).emit('message', msg);
       return msg;
     } catch (e) {
@@ -128,7 +110,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  // ── Read receipts ────────────────────────────────────────────────────────
   @SubscribeMessage('read')
   async handleRead(
     @ConnectedSocket() client: Socket,
@@ -136,9 +117,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const user = (client as any).user as User;
     if (!user || !data?.applicationId) return;
-
     await this.chatService.markAsRead(data.applicationId, user.id);
-
     this.server.to(`chat:${data.applicationId}`).emit('read', {
       applicationId: data.applicationId,
       readAt: new Date(),
@@ -146,7 +125,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  // ── Typing indicator ────────────────────────────────────────────────────
   @SubscribeMessage('typing')
   handleTyping(
     @ConnectedSocket() client: Socket,
@@ -156,7 +134,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (!user || !data?.applicationId) return;
 
     const key = `${user.id}:${data.applicationId}`;
-
     const existing = this.typingTimers.get(key);
     if (existing) clearTimeout(existing);
 
@@ -178,12 +155,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.typingTimers.set(key, timer);
   }
 
-  // ── Ping для поддержания онлайн статуса ─────────────────────────────────
   @SubscribeMessage('ping')
-  async handlePing(@ConnectedSocket() client: Socket & { user?: User }) {
-    const user = client.user;
+  handlePing(@ConnectedSocket() client: Socket) {
+    const user = (client as any).user as User;
     if (!user) return;
-    await this.cacheManager.set(`online:${user.id}`, true, 30000);
+    this.onlineStatus.setOnline(user.id);
     client.emit('pong');
   }
 }

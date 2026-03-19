@@ -16,29 +16,29 @@ exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const chat_service_1 = require("./chat.service");
+const online_status_service_1 = require("./online-status.service");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const user_entity_1 = require("../database/entities/user.entity");
 const api_response_1 = require("../common/dto/api-response");
-const cache_manager_1 = require("@nestjs/cache-manager");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 let ChatController = class ChatController {
     chatService;
-    cacheManager;
+    onlineStatus;
     userRepo;
-    constructor(chatService, cacheManager, userRepo) {
+    constructor(chatService, onlineStatus, userRepo) {
         this.chatService = chatService;
-        this.cacheManager = cacheManager;
+        this.onlineStatus = onlineStatus;
         this.userRepo = userRepo;
     }
     async getMyChats(user) {
         return (0, api_response_1.apiResponse)(await this.chatService.getMyChats(user.id));
     }
     async getUserStatus(userId) {
-        const online = await this.cacheManager.get(`online:${userId}`);
+        const online = this.onlineStatus.isOnline(userId);
         const user = await this.userRepo.findOne({ where: { id: userId } });
         return (0, api_response_1.apiResponse)({
-            online: !!online,
+            online,
             lastSeenAt: user?.lastSeenAt ?? null,
         });
     }
@@ -92,8 +92,9 @@ exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)('Chat'),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('chats'),
-    __param(1, (0, common_1.Inject)(cache_manager_1.CACHE_MANAGER)),
     __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __metadata("design:paramtypes", [chat_service_1.ChatService, Object, typeorm_2.Repository])
+    __metadata("design:paramtypes", [chat_service_1.ChatService,
+        online_status_service_1.OnlineStatusService,
+        typeorm_2.Repository])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

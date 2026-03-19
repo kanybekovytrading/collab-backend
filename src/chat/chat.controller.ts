@@ -3,7 +3,6 @@ import {
   Body,
   Controller,
   Get,
-  Inject,
   Param,
   ParseUUIDPipe,
   Post,
@@ -11,11 +10,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { ChatService } from './chat.service';
+import { OnlineStatusService } from './online-status.service';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { User } from '../database/entities/user.entity';
 import { apiResponse } from '../common/dto/api-response';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import type { Cache } from 'cache-manager';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
@@ -25,7 +23,7 @@ import { Repository } from 'typeorm';
 export class ChatController {
   constructor(
     private chatService: ChatService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private onlineStatus: OnlineStatusService,
     @InjectRepository(User) private userRepo: Repository<User>,
   ) {}
 
@@ -38,10 +36,10 @@ export class ChatController {
   @Get('users/:userId/status')
   @ApiOperation({ summary: 'Онлайн статус пользователя' })
   async getUserStatus(@Param('userId') userId: string) {
-    const online = await this.cacheManager.get(`online:${userId}`);
+    const online = this.onlineStatus.isOnline(userId);
     const user = await this.userRepo.findOne({ where: { id: userId } });
     return apiResponse({
-      online: !!online,
+      online,
       lastSeenAt: user?.lastSeenAt ?? null,
     });
   }

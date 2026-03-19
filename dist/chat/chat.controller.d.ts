@@ -1,12 +1,12 @@
 import { ChatService } from './chat.service';
+import { OnlineStatusService } from './online-status.service';
 import { User } from '../database/entities/user.entity';
-import type { Cache } from 'cache-manager';
 import { Repository } from 'typeorm';
 export declare class ChatController {
     private chatService;
-    private cacheManager;
+    private onlineStatus;
     private userRepo;
-    constructor(chatService: ChatService, cacheManager: Cache, userRepo: Repository<User>);
+    constructor(chatService: ChatService, onlineStatus: OnlineStatusService, userRepo: Repository<User>);
     getMyChats(user: User): Promise<{
         success: boolean;
         message: string;

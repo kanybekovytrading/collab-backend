@@ -14,29 +14,28 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
-const common_1 = require("@nestjs/common");
 const socket_io_1 = require("socket.io");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const chat_service_1 = require("./chat.service");
+const online_status_service_1 = require("./online-status.service");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../database/entities/user.entity");
-const cache_manager_1 = require("@nestjs/cache-manager");
 let ChatGateway = class ChatGateway {
     jwtService;
     cfg;
     chatService;
+    onlineStatus;
     userRepo;
-    cacheManager;
     server;
     typingTimers = new Map();
-    constructor(jwtService, cfg, chatService, userRepo, cacheManager) {
+    constructor(jwtService, cfg, chatService, onlineStatus, userRepo) {
         this.jwtService = jwtService;
         this.cfg = cfg;
         this.chatService = chatService;
+        this.onlineStatus = onlineStatus;
         this.userRepo = userRepo;
-        this.cacheManager = cacheManager;
     }
     async handleConnection(client) {
         try {
@@ -55,7 +54,7 @@ let ChatGateway = class ChatGateway {
                 return;
             }
             client.user = user;
-            await this.cacheManager.set(`online:${user.id}`, true, 30000);
+            this.onlineStatus.setOnline(user.id);
             client.broadcast.emit('user:online', { userId: user.id });
             console.log('[WS] Connected:', user.id, user.fullName);
         }
@@ -66,7 +65,7 @@ let ChatGateway = class ChatGateway {
     async handleDisconnect(client) {
         const user = client.user;
         if (user) {
-            await this.cacheManager.del(`online:${user.id}`);
+            this.onlineStatus.setOffline(user.id);
             await this.userRepo.update(user.id, { lastSeenAt: new Date() });
             client.broadcast.emit('user:offline', {
                 userId: user.id,
@@ -136,11 +135,11 @@ let ChatGateway = class ChatGateway {
         }, 3000);
         this.typingTimers.set(key, timer);
     }
-    async handlePing(client) {
+    handlePing(client) {
         const user = client.user;
         if (!user)
             return;
-        await this.cacheManager.set(`online:${user.id}`, true, 30000);
+        this.onlineStatus.setOnline(user.id);
         client.emit('pong');
     }
 };
@@ -185,16 +184,16 @@ __decorate([
     (0, websockets_1.SubscribeMessage)('ping'),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
+    __metadata("design:paramtypes", [socket_io_1.Socket]),
+    __metadata("design:returntype", void 0)
 ], ChatGateway.prototype, "handlePing", null);
 exports.ChatGateway = ChatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' }, namespace: '/ws' }),
-    __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
-    __param(4, (0, common_1.Inject)(cache_manager_1.CACHE_MANAGER)),
+    __param(4, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
     __metadata("design:paramtypes", [jwt_1.JwtService,
         config_1.ConfigService,
         chat_service_1.ChatService,
-        typeorm_2.Repository, Object])
+        online_status_service_1.OnlineStatusService,
+        typeorm_2.Repository])
 ], ChatGateway);
 //# sourceMappingURL=chat.gateway.js.map

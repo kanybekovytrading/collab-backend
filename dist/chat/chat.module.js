@@ -10,10 +10,10 @@ exports.ChatModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const jwt_1 = require("@nestjs/jwt");
-const cache_manager_1 = require("@nestjs/cache-manager");
 const chat_controller_1 = require("./chat.controller");
 const chat_service_1 = require("./chat.service");
 const chat_gateway_1 = require("./chat.gateway");
+const online_status_service_1 = require("./online-status.service");
 const chat_message_entity_1 = require("../database/entities/chat-message.entity");
 const application_entity_1 = require("../database/entities/application.entity");
 const user_entity_1 = require("../database/entities/user.entity");
@@ -25,10 +25,10 @@ exports.ChatModule = ChatModule = __decorate([
         imports: [
             typeorm_1.TypeOrmModule.forFeature([chat_message_entity_1.ChatMessage, application_entity_1.Application, user_entity_1.User]),
             jwt_1.JwtModule,
-            cache_manager_1.CacheModule.register({ ttl: 30000 }),
         ],
         controllers: [chat_controller_1.ChatController],
-        providers: [chat_service_1.ChatService, chat_gateway_1.ChatGateway],
+        providers: [chat_service_1.ChatService, chat_gateway_1.ChatGateway, online_status_service_1.OnlineStatusService],
+        exports: [online_status_service_1.OnlineStatusService],
     })
 ], ChatModule);
 //# sourceMappingURL=chat.module.js.map

@@ -19,7 +19,8 @@ async function bootstrap() {
     app.enableCors({
         origin: '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: '*',
+        exposedHeaders: ['Content-Range', 'X-Total-Count'],
     });
     const config = new swagger_1.DocumentBuilder()
         .setTitle('Collab API')
