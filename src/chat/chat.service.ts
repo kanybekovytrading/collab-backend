@@ -41,8 +41,12 @@ export class ChatService {
     });
 
     // Для каждой заявки берём последнее сообщение и кол-во непрочитанных
+    const validApps = applications.filter(
+      (app) => app.blogger && app.task && app.task.brand,
+    );
+
     const chats = await Promise.all(
-      applications.map(async (app) => {
+      validApps.map(async (app) => {
         // Последнее сообщение
         const lastMessage = await this.msgRepo.findOne({
           where: { application: { id: app.id } },
