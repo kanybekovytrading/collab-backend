@@ -25,14 +25,13 @@ import { databaseEntities } from './database/entities';
       inject: [ConfigService],
       useFactory: (cfg: ConfigService): TypeOrmModuleOptions => {
         const databaseUrl = cfg.get<string>('DATABASE_URL');
-        const isProduction = cfg.get<string>('NODE_ENV') === 'production';
         if (databaseUrl) {
           return {
             type: 'postgres',
             url: databaseUrl,
             ssl: { rejectUnauthorized: false },
             entities: databaseEntities,
-            synchronize: !isProduction,
+            synchronize: true,
             logging: true,
           };
         }
@@ -44,7 +43,7 @@ import { databaseEntities } from './database/entities';
           password: cfg.get<string>('DB_PASSWORD', 'postgres'),
           database: cfg.get<string>('DB_NAME', 'owner'),
           entities: databaseEntities,
-          synchronize: !isProduction,
+          synchronize: true,
           logging: true,
         };
       },
