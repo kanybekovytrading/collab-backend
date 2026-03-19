@@ -10,6 +10,7 @@ import { ChatMessage } from '../database/entities/chat-message.entity';
 import { Application } from '../database/entities/application.entity';
 import { User } from '../database/entities/user.entity';
 import { NotificationService } from '../notifications/notification.service';
+import { ChatMessageStatus } from './chat-message-status.enum';
 
 @Injectable()
 export class ChatService {
@@ -33,28 +34,24 @@ export class ChatService {
 
   // ── Список всех чатов пользователя (как Instagram Direct) ──────────────
   async getMyChats(userId: string) {
-    // Находим все заявки где пользователь — блогер или бренд
     const applications = await this.appRepo.find({
       where: [{ blogger: { id: userId } }, { task: { brand: { id: userId } } }],
       relations: ['blogger', 'task', 'task.brand'],
       order: { createdAt: 'DESC' },
     });
 
-    // Для каждой заявки берём последнее сообщение и кол-во непрочитанных
     const validApps = applications.filter(
       (app) => app.blogger && app.task && app.task.brand,
     );
 
     const chats = await Promise.all(
       validApps.map(async (app) => {
-        // Последнее сообщение
         const lastMessage = await this.msgRepo.findOne({
           where: { application: { id: app.id } },
           relations: ['sender'],
           order: { createdAt: 'DESC' },
         });
 
-        // Кол-во непрочитанных для текущего пользователя
         const unreadCount = await this.msgRepo.count({
           where: {
             application: { id: app.id },
@@ -63,7 +60,6 @@ export class ChatService {
           },
         });
 
-        // Собеседник — если я блогер, то собеседник бренд и наоборот
         const isBlogger = app.blogger.id === userId;
         const participant = isBlogger
           ? {
@@ -96,43 +92,49 @@ export class ChatService {
       }),
     );
 
-    // Сортируем по времени последнего сообщения (новые сверху)
     return chats.sort(
       (a, b) =>
         new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
     );
   }
 
-  async getMessages(appId: string, userId: string, page = 0, size = 50) {
-    const app = await this.getApplicationAndValidate(appId, userId);
+  async getMessages(
+    appId: string,
+    userId: string,
+    page = 0,
+    size = 30,
+    before?: string,
+  ) {
+    await this.getApplicationAndValidate(appId, userId);
 
-    // Mark incoming messages as read
-    await this.msgRepo
-      .createQueryBuilder()
-      .update(ChatMessage)
-      .set({ read: true })
-      .where(
-        '"applicationId" = :appId AND "recipientId" = :uid AND read = false',
-        { appId, uid: userId },
-      )
-      .execute();
+    await this.markAsRead(appId, userId);
 
-    const [items, total] = await this.msgRepo.findAndCount({
-      where: { application: { id: appId } },
-      relations: ['sender', 'recipient'],
-      order: { createdAt: 'DESC' },
-      skip: page * size,
-      take: size,
-    });
+    const qb = this.msgRepo
+      .createQueryBuilder('m')
+      .leftJoinAndSelect('m.sender', 'sender')
+      .leftJoinAndSelect('m.recipient', 'recipient')
+      .where('m.applicationId = :appId', { appId })
+      .orderBy('m.createdAt', 'DESC')
+      .take(size);
+
+    if (before) {
+      const cursor = await this.msgRepo.findOne({ where: { id: before } });
+      if (cursor) {
+        qb.andWhere('m.createdAt < :cursorDate', {
+          cursorDate: cursor.createdAt,
+        });
+      }
+    } else {
+      qb.skip(page * size);
+    }
+
+    const [items, total] = await qb.getManyAndCount();
 
     return {
       content: items.map((m) => this.format(m)),
-      page,
-      size,
+      nextCursor: items.length === size ? items[items.length - 1].id : null,
+      hasMore: items.length === size,
       totalElements: total,
-      totalPages: Math.ceil(total / size),
-      first: page === 0,
-      last: (page + 1) * size >= total,
     };
   }
 
@@ -152,6 +154,7 @@ export class ChatService {
       content: dto.content,
       attachmentUrl: dto.attachmentUrl,
       attachmentType: dto.attachmentType,
+      status: ChatMessageStatus.SENT,
     });
     await this.msgRepo.save(msg);
 
@@ -165,6 +168,30 @@ export class ChatService {
     return this.format(msg);
   }
 
+  async markAsRead(appId: string, userId: string) {
+    await this.msgRepo
+      .createQueryBuilder()
+      .update(ChatMessage)
+      .set({ read: true, status: ChatMessageStatus.READ })
+      .where(
+        '"applicationId" = :appId AND "recipientId" = :uid AND read = false',
+        { appId, uid: userId },
+      )
+      .execute();
+  }
+
+  async markAsDelivered(appId: string, userId: string) {
+    await this.msgRepo
+      .createQueryBuilder()
+      .update(ChatMessage)
+      .set({ status: ChatMessageStatus.DELIVERED })
+      .where(
+        '"applicationId" = :appId AND "recipientId" = :uid AND status = :status',
+        { appId, uid: userId, status: ChatMessageStatus.SENT },
+      )
+      .execute();
+  }
+
   format(m: ChatMessage) {
     return {
       id: m.id,
@@ -175,6 +202,7 @@ export class ChatService {
       attachmentUrl: m.attachmentUrl,
       attachmentType: m.attachmentType,
       read: m.read,
+      status: m.status || ChatMessageStatus.SENT,
       systemMessage: m.systemMessage,
       recipientId: m.recipient?.id,
       createdAt: m.createdAt,

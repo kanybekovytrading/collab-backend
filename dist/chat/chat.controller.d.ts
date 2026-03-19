@@ -1,9 +1,45 @@
 import { ChatService } from './chat.service';
 import { User } from '../database/entities/user.entity';
+import type { Cache } from 'cache-manager';
+import { Repository } from 'typeorm';
 export declare class ChatController {
     private chatService;
-    constructor(chatService: ChatService);
-    getMessages(user: User, appId: string, page?: number, size?: number): Promise<{
+    private cacheManager;
+    private userRepo;
+    constructor(chatService: ChatService, cacheManager: Cache, userRepo: Repository<User>);
+    getMyChats(user: User): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            applicationId: string;
+            taskTitle: string;
+            taskId: string;
+            status: import("../database/entities/application.entity").ApplicationStatus;
+            participant: {
+                id: string;
+                fullName: string;
+                avatarUrl: any;
+            };
+            lastMessage: {
+                content: string;
+                senderId: string;
+                createdAt: Date;
+            };
+            unreadCount: number;
+            updatedAt: Date;
+        }[];
+        errors: any;
+    }>;
+    getUserStatus(userId: string): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            online: boolean;
+            lastSeenAt: Date;
+        };
+        errors: any;
+    }>;
+    getMessages(user: User, appId: string, page?: number, size?: number, before?: string): Promise<{
         success: boolean;
         message: string;
         data: {
@@ -16,16 +52,14 @@ export declare class ChatController {
                 attachmentUrl: string;
                 attachmentType: string;
                 read: boolean;
+                status: import("./chat-message-status.enum").ChatMessageStatus;
                 systemMessage: boolean;
                 recipientId: string;
                 createdAt: Date;
             }[];
-            page: number;
-            size: number;
+            nextCursor: string;
+            hasMore: boolean;
             totalElements: number;
-            totalPages: number;
-            first: boolean;
-            last: boolean;
         };
         errors: any;
     }>;
@@ -41,6 +75,7 @@ export declare class ChatController {
             attachmentUrl: string;
             attachmentType: string;
             read: boolean;
+            status: import("./chat-message-status.enum").ChatMessageStatus;
             systemMessage: boolean;
             recipientId: string;
             createdAt: Date;

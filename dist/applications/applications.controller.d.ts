@@ -7,6 +7,7 @@ export declare class ApplicationsController {
         success: boolean;
         message: string;
         data: {
+            chatId: string;
             id: string;
             status: import("../database/entities/application.entity").ApplicationStatus;
             coverLetter: string;

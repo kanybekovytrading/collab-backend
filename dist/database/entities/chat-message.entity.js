@@ -13,6 +13,7 @@ exports.ChatMessage = void 0;
 const typeorm_1 = require("typeorm");
 const user_entity_1 = require("./user.entity");
 const application_entity_1 = require("./application.entity");
+const chat_message_status_enum_1 = require("../../chat/chat-message-status.enum");
 let ChatMessage = class ChatMessage {
     id;
     application;
@@ -23,6 +24,7 @@ let ChatMessage = class ChatMessage {
     attachmentType;
     read;
     systemMessage;
+    status;
     createdAt;
 };
 exports.ChatMessage = ChatMessage;
@@ -65,6 +67,14 @@ __decorate([
     (0, typeorm_1.Column)({ default: false }),
     __metadata("design:type", Boolean)
 ], ChatMessage.prototype, "systemMessage", void 0);
+__decorate([
+    (0, typeorm_1.Column)({
+        type: 'enum',
+        enum: chat_message_status_enum_1.ChatMessageStatus,
+        default: chat_message_status_enum_1.ChatMessageStatus.SENT,
+    }),
+    __metadata("design:type", String)
+], ChatMessage.prototype, "status", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

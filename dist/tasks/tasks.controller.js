@@ -29,11 +29,11 @@ let TasksController = class TasksController {
     async getAll(query) {
         return (0, api_response_1.apiResponse)(await this.tasksService.findAll(query));
     }
-    async getOne(id) {
-        return (0, api_response_1.apiResponse)(await this.tasksService.findOne(id));
-    }
     async getMy(user, page = 0, size = 20) {
         return (0, api_response_1.apiResponse)(await this.tasksService.findMyTasks(user.id, +page, +size));
+    }
+    async getOne(id) {
+        return (0, api_response_1.apiResponse)(await this.tasksService.findOne(id));
     }
     async create(user, dto) {
         return (0, api_response_1.apiResponse)(await this.tasksService.create(user, dto));
@@ -54,15 +54,6 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], TasksController.prototype, "getAll", null);
 __decorate([
-    (0, public_decorator_1.Public)(),
-    (0, common_1.Get)(':id'),
-    (0, swagger_1.ApiOperation)({ summary: 'Детали задания по ID' }),
-    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], TasksController.prototype, "getOne", null);
-__decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Get)('my'),
     (0, swagger_1.ApiOperation)({ summary: 'Мои задания (для бренда)' }),
@@ -73,6 +64,15 @@ __decorate([
     __metadata("design:paramtypes", [user_entity_1.User, Object, Object]),
     __metadata("design:returntype", Promise)
 ], TasksController.prototype, "getMy", null);
+__decorate([
+    (0, public_decorator_1.Public)(),
+    (0, common_1.Get)(':id'),
+    (0, swagger_1.ApiOperation)({ summary: 'Детали задания по ID' }),
+    __param(0, (0, common_1.Param)('id', common_1.ParseUUIDPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], TasksController.prototype, "getOne", null);
 __decorate([
     (0, swagger_1.ApiBearerAuth)(),
     (0, roles_decorator_1.Roles)('BRAND'),

@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const schedule_1 = require("@nestjs/schedule");
 const typeorm_1 = require("@nestjs/typeorm");
 const auth_module_1 = require("./auth/auth.module");
 const users_module_1 = require("./users/users.module");
@@ -23,6 +24,7 @@ const bloggers_module_1 = require("./bloggers/bloggers.module");
 const brands_module_1 = require("./brands/brands.module");
 const portfolio_module_1 = require("./portfolio/portfolio.module");
 const device_module_1 = require("./device/device.module");
+const notification_module_1 = require("./notifications/notification.module");
 const entities_1 = require("./database/entities");
 let AppModule = class AppModule {
 };
@@ -59,6 +61,7 @@ exports.AppModule = AppModule = __decorate([
                     };
                 },
             }),
+            schedule_1.ScheduleModule.forRoot(),
             auth_module_1.AuthModule,
             users_module_1.UsersModule,
             tasks_module_1.TasksModule,
@@ -72,6 +75,7 @@ exports.AppModule = AppModule = __decorate([
             brands_module_1.BrandsModule,
             portfolio_module_1.PortfolioModule,
             device_module_1.DeviceModule,
+            notification_module_1.NotificationModule,
         ],
     })
 ], AppModule);

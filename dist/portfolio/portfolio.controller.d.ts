@@ -7,7 +7,8 @@ export declare class PortfolioController {
         success: boolean;
         message: string;
         data: {
-            content: {
+            content: ({
+                type: string;
                 id: any;
                 mediaUrl: any;
                 thumbnailUrl: any;
@@ -23,7 +24,20 @@ export declare class PortfolioController {
                     rating: number;
                     completedTasksCount: any;
                 };
-            }[];
+            } | {
+                type: string;
+                id: any;
+                blogger: {
+                    id: any;
+                    fullName: any;
+                    avatarUrl: any;
+                    bio: any;
+                    categories: any;
+                    socialAccounts: any;
+                    rating: number;
+                    completedTasksCount: any;
+                };
+            })[];
             page: number;
             size: number;
             totalElements: number;

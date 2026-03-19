@@ -54,6 +54,9 @@ export class User {
   @Column({ nullable: true })
   fcmToken: string;
 
+  @Column({ nullable: true })
+  lastSeenAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

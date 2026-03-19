@@ -5,18 +5,26 @@ import { BloggerProfile } from '../database/entities/blogger-profile.entity';
 import { BrandProfile } from '../database/entities/brand-profile.entity';
 import { CompletionRecord } from '../database/entities/completion-record.entity';
 import { User } from '../database/entities/user.entity';
+import { ChatMessage } from '../database/entities/chat-message.entity';
+import { PortfolioItem } from '../database/entities/portfolio-item.entity';
+import { NotificationService } from '../notifications/notification.service';
 export declare class ApplicationsService {
     private appRepo;
     private taskRepo;
     private bloggerRepo;
     private brandRepo;
     private completionRepo;
-    constructor(appRepo: Repository<Application>, taskRepo: Repository<Task>, bloggerRepo: Repository<BloggerProfile>, brandRepo: Repository<BrandProfile>, completionRepo: Repository<CompletionRecord>);
+    private msgRepo;
+    private portfolioRepo;
+    private readonly notificationService;
+    constructor(appRepo: Repository<Application>, taskRepo: Repository<Task>, bloggerRepo: Repository<BloggerProfile>, brandRepo: Repository<BrandProfile>, completionRepo: Repository<CompletionRecord>, msgRepo: Repository<ChatMessage>, portfolioRepo: Repository<PortfolioItem>, notificationService: NotificationService);
     apply(user: User, dto: {
         taskId: string;
+        message?: string;
         coverLetter?: string;
         proposedPrice?: number;
     }): Promise<{
+        chatId: string;
         id: string;
         status: ApplicationStatus;
         coverLetter: string;
@@ -69,6 +77,7 @@ export declare class ApplicationsService {
         comment?: string;
     }): Promise<void>;
     approve(brandUser: User, id: string): Promise<void>;
+    autoCompleteSubmitted(): Promise<number>;
     private getApp;
     format(a: Application): {
         id: string;

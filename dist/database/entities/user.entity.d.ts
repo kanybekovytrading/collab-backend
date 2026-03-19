@@ -18,6 +18,7 @@ export declare class User {
     city: string;
     country: string;
     fcmToken: string;
+    lastSeenAt: Date;
     createdAt: Date;
     updatedAt: Date;
 }

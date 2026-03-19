@@ -1,4 +1,3 @@
-import { OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 export interface UploadResult {
     fileId: string;
@@ -14,14 +13,11 @@ export interface PresignedUploadResult {
     fileId: string;
     expiresIn: number;
 }
-export declare class MediaService implements OnModuleInit {
+export declare class MediaService {
     private cfg;
     private readonly s3;
     private readonly bucket;
     private readonly publicBase;
-    private readonly appUrl;
-    onModuleInit(): Promise<void>;
-    private setBucketPublicPolicy;
     constructor(cfg: ConfigService);
     upload(type: string, entityId: string, file: Express.Multer.File): Promise<UploadResult>;
     getPresignedUpload(type: string, entityId: string, contentType: string, sizeBytes: number): Promise<PresignedUploadResult>;

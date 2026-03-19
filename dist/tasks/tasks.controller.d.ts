@@ -17,6 +17,20 @@ export declare class TasksController {
         };
         errors: any;
     }>;
+    getMy(user: User, page?: number, size?: number): Promise<{
+        success: boolean;
+        message: string;
+        data: {
+            content: any[];
+            page: number;
+            size: number;
+            totalElements: number;
+            totalPages: number;
+            first: boolean;
+            last: boolean;
+        };
+        errors: any;
+    }>;
     getOne(id: string): Promise<{
         success: boolean;
         message: string;
@@ -46,20 +60,6 @@ export declare class TasksController {
                 verified: boolean;
                 rating: any;
             };
-        };
-        errors: any;
-    }>;
-    getMy(user: User, page?: number, size?: number): Promise<{
-        success: boolean;
-        message: string;
-        data: {
-            content: any[];
-            page: number;
-            size: number;
-            totalElements: number;
-            totalPages: number;
-            first: boolean;
-            last: boolean;
         };
         errors: any;
     }>;

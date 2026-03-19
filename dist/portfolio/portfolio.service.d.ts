@@ -39,7 +39,8 @@ export declare class PortfolioService {
         page?: string;
         size?: string;
     }): Promise<{
-        content: {
+        content: ({
+            type: string;
             id: any;
             mediaUrl: any;
             thumbnailUrl: any;
@@ -55,7 +56,20 @@ export declare class PortfolioService {
                 rating: number;
                 completedTasksCount: any;
             };
-        }[];
+        } | {
+            type: string;
+            id: any;
+            blogger: {
+                id: any;
+                fullName: any;
+                avatarUrl: any;
+                bio: any;
+                categories: any;
+                socialAccounts: any;
+                rating: number;
+                completedTasksCount: any;
+            };
+        })[];
         page: number;
         size: number;
         totalElements: number;
@@ -64,6 +78,7 @@ export declare class PortfolioService {
         last: boolean;
     }>;
     formatFeed(i: any): {
+        type: string;
         id: any;
         mediaUrl: any;
         thumbnailUrl: any;
@@ -74,6 +89,20 @@ export declare class PortfolioService {
             id: any;
             fullName: any;
             avatarUrl: any;
+            categories: any;
+            socialAccounts: any;
+            rating: number;
+            completedTasksCount: any;
+        };
+    };
+    formatBloggerCard(b: any): {
+        type: string;
+        id: any;
+        blogger: {
+            id: any;
+            fullName: any;
+            avatarUrl: any;
+            bio: any;
             categories: any;
             socialAccounts: any;
             rating: number;

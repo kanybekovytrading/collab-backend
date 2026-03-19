@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatGateway = void 0;
 const websockets_1 = require("@nestjs/websockets");
+const common_1 = require("@nestjs/common");
 const socket_io_1 = require("socket.io");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
@@ -21,24 +22,27 @@ const chat_service_1 = require("./chat.service");
 const typeorm_1 = require("@nestjs/typeorm");
 const typeorm_2 = require("typeorm");
 const user_entity_1 = require("../database/entities/user.entity");
+const cache_manager_1 = require("@nestjs/cache-manager");
 let ChatGateway = class ChatGateway {
     jwtService;
     cfg;
     chatService;
     userRepo;
+    cacheManager;
     server;
-    constructor(jwtService, cfg, chatService, userRepo) {
+    typingTimers = new Map();
+    constructor(jwtService, cfg, chatService, userRepo, cacheManager) {
         this.jwtService = jwtService;
         this.cfg = cfg;
         this.chatService = chatService;
         this.userRepo = userRepo;
+        this.cacheManager = cacheManager;
     }
     async handleConnection(client) {
         try {
             const token = client.handshake.auth?.token ||
                 client.handshake.headers.authorization?.split(' ')[1];
             if (!token) {
-                console.log('[WS] No token, disconnecting', client.id);
                 client.disconnect();
                 return;
             }
@@ -47,25 +51,43 @@ let ChatGateway = class ChatGateway {
             });
             const user = await this.userRepo.findOne({ where: { id: payload.sub } });
             if (!user) {
-                console.log('[WS] User not found, disconnecting', client.id);
                 client.disconnect();
                 return;
             }
             client.user = user;
+            await this.cacheManager.set(`online:${user.id}`, true, 30000);
+            client.broadcast.emit('user:online', { userId: user.id });
             console.log('[WS] Connected:', user.id, user.fullName);
         }
-        catch (e) {
-            console.log('[WS] Auth error, disconnecting', client.id, e.message);
+        catch {
             client.disconnect();
         }
     }
-    handleDisconnect(client) {
+    async handleDisconnect(client) {
         const user = client.user;
+        if (user) {
+            await this.cacheManager.del(`online:${user.id}`);
+            await this.userRepo.update(user.id, { lastSeenAt: new Date() });
+            client.broadcast.emit('user:offline', {
+                userId: user.id,
+                lastSeenAt: new Date(),
+            });
+        }
         console.log('[WS] Disconnected:', user?.id ?? client.id);
     }
-    handleJoin(client, appId) {
+    async handleJoin(client, data) {
+        const appId = typeof data === 'string' ? data : data.applicationId;
+        const user = client.user;
         client.join(`chat:${appId}`);
-        console.log('[WS] User', client.user?.id, 'joined chat:', appId);
+        console.log('[WS] User', user?.id, 'joined chat:', appId);
+        if (user && typeof data === 'object') {
+            await this.chatService.markAsDelivered(appId, user.id);
+            this.server.to(`chat:${appId}`).emit('delivered', {
+                applicationId: appId,
+                deliveredAt: new Date(),
+                userId: user.id,
+            });
+        }
     }
     async handleMessage(client, data) {
         const user = client.user;
@@ -77,18 +99,49 @@ let ChatGateway = class ChatGateway {
             return msg;
         }
         catch (e) {
-            console.error('[WS] handleMessage error:', e.message);
             client.emit('error', { message: e.message });
         }
+    }
+    async handleRead(client, data) {
+        const user = client.user;
+        if (!user || !data?.applicationId)
+            return;
+        await this.chatService.markAsRead(data.applicationId, user.id);
+        this.server.to(`chat:${data.applicationId}`).emit('read', {
+            applicationId: data.applicationId,
+            readAt: new Date(),
+            userId: user.id,
+        });
     }
     handleTyping(client, data) {
         const user = client.user;
         if (!user || !data?.applicationId)
             return;
+        const key = `${user.id}:${data.applicationId}`;
+        const existing = this.typingTimers.get(key);
+        if (existing)
+            clearTimeout(existing);
         client.to(`chat:${data.applicationId}`).emit('typing', {
             userId: user.id,
             name: user.fullName,
+            isTyping: true,
         });
+        const timer = setTimeout(() => {
+            client.to(`chat:${data.applicationId}`).emit('typing', {
+                userId: user.id,
+                name: user.fullName,
+                isTyping: false,
+            });
+            this.typingTimers.delete(key);
+        }, 3000);
+        this.typingTimers.set(key, timer);
+    }
+    async handlePing(client) {
+        const user = client.user;
+        if (!user)
+            return;
+        await this.cacheManager.set(`online:${user.id}`, true, 30000);
+        client.emit('pong');
     }
 };
 exports.ChatGateway = ChatGateway;
@@ -101,8 +154,8 @@ __decorate([
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [socket_io_1.Socket, String]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleJoin", null);
 __decorate([
     (0, websockets_1.SubscribeMessage)('chat'),
@@ -113,6 +166,14 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ChatGateway.prototype, "handleMessage", null);
 __decorate([
+    (0, websockets_1.SubscribeMessage)('read'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __param(1, (0, websockets_1.MessageBody)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
+    __metadata("design:returntype", Promise)
+], ChatGateway.prototype, "handleRead", null);
+__decorate([
     (0, websockets_1.SubscribeMessage)('typing'),
     __param(0, (0, websockets_1.ConnectedSocket)()),
     __param(1, (0, websockets_1.MessageBody)()),
@@ -120,12 +181,20 @@ __decorate([
     __metadata("design:paramtypes", [socket_io_1.Socket, Object]),
     __metadata("design:returntype", void 0)
 ], ChatGateway.prototype, "handleTyping", null);
+__decorate([
+    (0, websockets_1.SubscribeMessage)('ping'),
+    __param(0, (0, websockets_1.ConnectedSocket)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", Promise)
+], ChatGateway.prototype, "handlePing", null);
 exports.ChatGateway = ChatGateway = __decorate([
     (0, websockets_1.WebSocketGateway)({ cors: { origin: '*' }, namespace: '/ws' }),
     __param(3, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __param(4, (0, common_1.Inject)(cache_manager_1.CACHE_MANAGER)),
     __metadata("design:paramtypes", [jwt_1.JwtService,
         config_1.ConfigService,
         chat_service_1.ChatService,
-        typeorm_2.Repository])
+        typeorm_2.Repository, Object])
 ], ChatGateway);
 //# sourceMappingURL=chat.gateway.js.map

@@ -42,32 +42,6 @@ let MediaService = class MediaService {
     s3;
     bucket;
     publicBase;
-    appUrl;
-    async onModuleInit() {
-        try {
-            await this.setBucketPublicPolicy();
-            console.log('[MediaService] bucket policy set to public read');
-        }
-        catch (e) {
-            console.warn('[MediaService] failed to set bucket policy:', e);
-        }
-    }
-    async setBucketPublicPolicy() {
-        const { PutBucketPolicyCommand } = await import('@aws-sdk/client-s3');
-        const policy = JSON.stringify({
-            Version: '2012-10-17',
-            Statement: [
-                {
-                    Sid: 'PublicReadGetObject',
-                    Effect: 'Allow',
-                    Principal: '*',
-                    Action: 's3:GetObject',
-                    Resource: `arn:aws:s3:::${this.bucket}/*`,
-                },
-            ],
-        });
-        await this.s3.send(new PutBucketPolicyCommand({ Bucket: this.bucket, Policy: policy }));
-    }
     constructor(cfg) {
         this.cfg = cfg;
         const endpoint = cfg.getOrThrow('MINIO_ENDPOINT');
@@ -80,8 +54,7 @@ let MediaService = class MediaService {
             credentials: { accessKeyId: accessKey, secretAccessKey: secretKey },
             forcePathStyle: true,
         });
-        this.publicBase = `${endpoint}/${this.bucket}`;
-        this.appUrl = cfg.getOrThrow('APP_URL');
+        this.publicBase = cfg.getOrThrow('R2_PUBLIC_URL');
     }
     async upload(type, entityId, file) {
         const typeConfig = ALLOWED_TYPES[type];
@@ -99,11 +72,10 @@ let MediaService = class MediaService {
             Key: key,
             Body: file.buffer,
             ContentType: file.mimetype,
-            ACL: 'public-read',
         }));
         return {
             fileId: key,
-            url: `${this.appUrl}/api/v1/media/file?key=${key}`,
+            url: `${this.publicBase}/${key}`,
             hlsUrl: null,
             status: 'ready',
             contentType: file.mimetype,
@@ -126,14 +98,13 @@ let MediaService = class MediaService {
             Bucket: this.bucket,
             Key: key,
             ContentType: contentType,
-            ACL: 'public-read',
         });
         const uploadUrl = await (0, s3_request_presigner_1.getSignedUrl)(this.s3, command, {
             expiresIn: EXPIRES,
         });
         return {
             uploadUrl,
-            publicUrl: `${this.appUrl}/api/v1/media/file?key=${key}`,
+            publicUrl: `${this.publicBase}/${key}`,
             fileId: key,
             expiresIn: EXPIRES,
         };

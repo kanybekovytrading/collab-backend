@@ -32,6 +32,7 @@ let User = class User {
     city;
     country;
     fcmToken;
+    lastSeenAt;
     createdAt;
     updatedAt;
 };
@@ -88,6 +89,10 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], User.prototype, "fcmToken", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", Date)
+], User.prototype, "lastSeenAt", void 0);
 __decorate([
     (0, typeorm_1.CreateDateColumn)(),
     __metadata("design:type", Date)

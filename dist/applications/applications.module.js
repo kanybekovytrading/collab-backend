@@ -11,11 +11,14 @@ const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const applications_controller_1 = require("./applications.controller");
 const applications_service_1 = require("./applications.service");
+const applications_scheduler_1 = require("./applications.scheduler");
 const application_entity_1 = require("../database/entities/application.entity");
 const task_entity_1 = require("../database/entities/task.entity");
 const blogger_profile_entity_1 = require("../database/entities/blogger-profile.entity");
 const brand_profile_entity_1 = require("../database/entities/brand-profile.entity");
 const completion_record_entity_1 = require("../database/entities/completion-record.entity");
+const chat_message_entity_1 = require("../database/entities/chat-message.entity");
+const portfolio_item_entity_1 = require("../database/entities/portfolio-item.entity");
 let ApplicationsModule = class ApplicationsModule {
 };
 exports.ApplicationsModule = ApplicationsModule;
@@ -28,10 +31,12 @@ exports.ApplicationsModule = ApplicationsModule = __decorate([
                 blogger_profile_entity_1.BloggerProfile,
                 brand_profile_entity_1.BrandProfile,
                 completion_record_entity_1.CompletionRecord,
+                chat_message_entity_1.ChatMessage,
+                portfolio_item_entity_1.PortfolioItem,
             ]),
         ],
         controllers: [applications_controller_1.ApplicationsController],
-        providers: [applications_service_1.ApplicationsService],
+        providers: [applications_service_1.ApplicationsService, applications_scheduler_1.ApplicationsScheduler],
         exports: [applications_service_1.ApplicationsService],
     })
 ], ApplicationsModule);

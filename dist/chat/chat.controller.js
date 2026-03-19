@@ -19,13 +19,31 @@ const chat_service_1 = require("./chat.service");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const user_entity_1 = require("../database/entities/user.entity");
 const api_response_1 = require("../common/dto/api-response");
+const cache_manager_1 = require("@nestjs/cache-manager");
+const typeorm_1 = require("@nestjs/typeorm");
+const typeorm_2 = require("typeorm");
 let ChatController = class ChatController {
     chatService;
-    constructor(chatService) {
+    cacheManager;
+    userRepo;
+    constructor(chatService, cacheManager, userRepo) {
         this.chatService = chatService;
+        this.cacheManager = cacheManager;
+        this.userRepo = userRepo;
     }
-    async getMessages(user, appId, page = 0, size = 50) {
-        return (0, api_response_1.apiResponse)(await this.chatService.getMessages(appId, user.id, +page, +size));
+    async getMyChats(user) {
+        return (0, api_response_1.apiResponse)(await this.chatService.getMyChats(user.id));
+    }
+    async getUserStatus(userId) {
+        const online = await this.cacheManager.get(`online:${userId}`);
+        const user = await this.userRepo.findOne({ where: { id: userId } });
+        return (0, api_response_1.apiResponse)({
+            online: !!online,
+            lastSeenAt: user?.lastSeenAt ?? null,
+        });
+    }
+    async getMessages(user, appId, page = 0, size = 30, before) {
+        return (0, api_response_1.apiResponse)(await this.chatService.getMessages(appId, user.id, +page, +size, before));
     }
     async send(user, appId, dto) {
         return (0, api_response_1.apiResponse)(await this.chatService.sendMessage(appId, user, dto));
@@ -33,19 +51,36 @@ let ChatController = class ChatController {
 };
 exports.ChatController = ChatController;
 __decorate([
+    (0, common_1.Get)('my'),
+    (0, swagger_1.ApiOperation)({ summary: 'Список моих чатов (как Instagram Direct)' }),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [user_entity_1.User]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "getMyChats", null);
+__decorate([
+    (0, common_1.Get)('users/:userId/status'),
+    (0, swagger_1.ApiOperation)({ summary: 'Онлайн статус пользователя' }),
+    __param(0, (0, common_1.Param)('userId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ChatController.prototype, "getUserStatus", null);
+__decorate([
     (0, common_1.Get)(':appId/messages'),
     (0, swagger_1.ApiOperation)({ summary: 'История сообщений чата' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('appId', common_1.ParseUUIDPipe)),
     __param(2, (0, common_1.Query)('page')),
     __param(3, (0, common_1.Query)('size')),
+    __param(4, (0, common_1.Query)('before')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [user_entity_1.User, String, Object, Object]),
+    __metadata("design:paramtypes", [user_entity_1.User, String, Object, Object, String]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "getMessages", null);
 __decorate([
     (0, common_1.Post)(':appId/messages'),
-    (0, swagger_1.ApiOperation)({ summary: 'Отправить сообщение (REST)' }),
+    (0, swagger_1.ApiOperation)({ summary: 'Отправить сообщение (REST fallback)' }),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
     __param(1, (0, common_1.Param)('appId', common_1.ParseUUIDPipe)),
     __param(2, (0, common_1.Body)()),
@@ -57,6 +92,8 @@ exports.ChatController = ChatController = __decorate([
     (0, swagger_1.ApiTags)('Chat'),
     (0, swagger_1.ApiBearerAuth)(),
     (0, common_1.Controller)('chats'),
-    __metadata("design:paramtypes", [chat_service_1.ChatService])
+    __param(1, (0, common_1.Inject)(cache_manager_1.CACHE_MANAGER)),
+    __param(2, (0, typeorm_1.InjectRepository)(user_entity_1.User)),
+    __metadata("design:paramtypes", [chat_service_1.ChatService, Object, typeorm_2.Repository])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map
