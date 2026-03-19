@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
 // chat.service.ts
 import {
   ForbiddenException,
