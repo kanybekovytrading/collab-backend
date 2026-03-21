@@ -160,6 +160,18 @@ let ApplicationsService = class ApplicationsService {
         app.status = application_entity_1.ApplicationStatus.SUBMITTED;
         app.workUrl = dto.workUrl;
         await this.appRepo.save(app);
+        if (dto.workUrl) {
+            const isVideo = /\.(mp4|mov|webm|m4v)$/i.test(dto.workUrl);
+            const msg = this.msgRepo.create({
+                application: app,
+                sender: app.blogger,
+                recipient: { id: app.task.brand.id },
+                content: dto.comment ?? '📎 Блогер сдал работу',
+                attachmentUrl: dto.workUrl,
+                attachmentType: isVideo ? 'video' : 'image',
+            });
+            await this.msgRepo.save(msg);
+        }
         void this.notificationService.send(app.task.brand.fcmToken, 'Работа сдана', `${app.blogger.fullName ?? 'Блогер'} сдал работу по «${app.task.title}»`, { type: 'WORK_SUBMITTED', appId: app.id });
     }
     async requestRevision(brandUser, id, dto) {

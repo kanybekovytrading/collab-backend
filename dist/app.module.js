@@ -37,14 +37,13 @@ exports.AppModule = AppModule = __decorate([
                 inject: [config_1.ConfigService],
                 useFactory: (cfg) => {
                     const databaseUrl = cfg.get('DATABASE_URL');
-                    const isProduction = cfg.get('NODE_ENV') === 'production';
                     if (databaseUrl) {
                         return {
                             type: 'postgres',
                             url: databaseUrl,
                             ssl: { rejectUnauthorized: false },
                             entities: entities_1.databaseEntities,
-                            synchronize: !isProduction,
+                            synchronize: true,
                             logging: true,
                         };
                     }
@@ -56,7 +55,7 @@ exports.AppModule = AppModule = __decorate([
                         password: cfg.get('DB_PASSWORD', 'postgres'),
                         database: cfg.get('DB_NAME', 'owner'),
                         entities: entities_1.databaseEntities,
-                        synchronize: !isProduction,
+                        synchronize: true,
                         logging: true,
                     };
                 },
