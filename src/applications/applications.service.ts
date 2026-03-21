@@ -99,6 +99,7 @@ export class ApplicationsService {
 
     const blogger = await this.bloggerRepo.findOne({
       where: { user: { id: dto.bloggerId } },
+      relations: ['user'],
     });
     if (!blogger) throw new NotFoundException('Blogger not found');
 
