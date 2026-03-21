@@ -1,4 +1,4 @@
-import { Body, Controller, Put } from '@nestjs/common';
+import { Body, Controller, Delete, Put } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -21,6 +21,13 @@ export class DeviceController {
   async updateFcmToken(@CurrentUser() user: User, @Body() dto: { token: string }) {
     await this.userRepo.update(user.id, { fcmToken: dto.token });
     return apiResponse(null, 'FCM token updated');
+  }
+
+  @Delete('fcm-token')
+  @ApiOperation({ summary: 'Удалить FCM token (logout / отписка от уведомлений)' })
+  async deleteFcmToken(@CurrentUser() user: User) {
+    await this.userRepo.update(user.id, { fcmToken: null });
+    return apiResponse(null, 'FCM token removed');
   }
 }
 

@@ -164,6 +164,7 @@ export class ChatService {
       sender.fullName ?? 'Новое сообщение',
       dto.content ?? '📎 Вложение',
       { type: 'NEW_MESSAGE', appId },
+      recipient.id,
     );
 
     return this.format(msg);

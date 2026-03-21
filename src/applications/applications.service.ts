@@ -85,6 +85,7 @@ export class ApplicationsService {
       'Новый отклик',
       `${user.fullName ?? 'Блогер'} откликнулся на «${task.title}»`,
       { type: 'NEW_APPLICATION', appId: app.id },
+      task.brand.id,
     );
 
     return { ...this.format(app), chatId: app.id };
@@ -113,6 +114,7 @@ export class ApplicationsService {
       'Вас пригласили на задание',
       `Бренд «${brandUser.fullName ?? 'Бренд'}» приглашает вас на «${task.title}»`,
       { type: 'INVITE', appId: app.id },
+      blogger.user.id,
     );
   }
 
@@ -167,6 +169,7 @@ export class ApplicationsService {
       'Заявка принята',
       `Бренд принял вашу заявку на «${app.task.title}»`,
       { type: 'APPLICATION_ACCEPTED', appId: app.id },
+      app.blogger.id,
     );
   }
 
@@ -182,6 +185,7 @@ export class ApplicationsService {
       'Заявка отклонена',
       `Ваша заявка на «${app.task.title}» была отклонена`,
       { type: 'APPLICATION_REJECTED', appId: app.id },
+      app.blogger.id,
     );
   }
 
@@ -233,6 +237,7 @@ export class ApplicationsService {
       'Работа сдана',
       `${app.blogger.fullName ?? 'Блогер'} сдал работу по «${app.task.title}»`,
       { type: 'WORK_SUBMITTED', appId: app.id },
+      app.task.brand.id,
     );
   }
 
@@ -254,6 +259,7 @@ export class ApplicationsService {
       'Нужна доработка',
       `Бренд запросил доработку по «${app.task.title}»`,
       { type: 'REVISION_REQUESTED', appId: app.id },
+      app.blogger.id,
     );
   }
 
@@ -291,6 +297,7 @@ export class ApplicationsService {
       'Работа принята! 🎉',
       `Бренд принял вашу работу по «${app.task.title}». Оставьте отзыв!`,
       { type: 'WORK_APPROVED', appId: app.id },
+      app.blogger.id,
     );
   }
 
@@ -329,6 +336,7 @@ export class ApplicationsService {
         'Работа автоматически принята ✅',
         `Бренд не ответил 3 дня — работа по «${app.task.title}» засчитана. Оставьте отзыв!`,
         { type: 'WORK_APPROVED', appId: app.id },
+        app.blogger.id,
       );
 
       void this.notificationService.send(
@@ -336,6 +344,7 @@ export class ApplicationsService {
         'Работа автоматически завершена',
         `Вы не проверили работу по «${app.task.title}» — она засчитана автоматически. Оставьте отзыв!`,
         { type: 'WORK_APPROVED', appId: app.id },
+        app.task.brand.id,
       );
     }
 

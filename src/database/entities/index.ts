@@ -7,6 +7,7 @@ import { ChatMessage } from './chat-message.entity';
 import { Review } from './review.entity';
 import { PortfolioItem } from './portfolio-item.entity';
 import { CompletionRecord } from './completion-record.entity';
+import { Notification } from './notification.entity';
 
 export const databaseEntities = [
   User,
@@ -18,6 +19,7 @@ export const databaseEntities = [
   Review,
   PortfolioItem,
   CompletionRecord,
+  Notification,
 ];
 
 export {
@@ -30,4 +32,5 @@ export {
   Review,
   PortfolioItem,
   CompletionRecord,
+  Notification,
 };
