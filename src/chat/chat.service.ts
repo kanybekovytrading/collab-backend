@@ -160,7 +160,7 @@ export class ChatService {
     await this.msgRepo.save(msg);
 
     void this.notificationService.send(
-      recipient.fcmToken,
+      recipient?.fcmToken,
       sender.fullName ?? 'Новое сообщение',
       dto.content ?? '📎 Вложение',
       { type: 'NEW_MESSAGE', appId },

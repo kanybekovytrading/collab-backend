@@ -81,7 +81,7 @@ export class ApplicationsService {
 
     // Уведомить бренда о новом отклике
     void this.notificationService.send(
-      task.brand.fcmToken,
+      task.brand?.fcmToken,
       'Новый отклик',
       `${user.fullName ?? 'Блогер'} откликнулся на «${task.title}»`,
       { type: 'NEW_APPLICATION', appId: app.id },
@@ -110,7 +110,7 @@ export class ApplicationsService {
     await this.appRepo.save(app);
 
     void this.notificationService.send(
-      blogger.user.fcmToken,
+      blogger.user?.fcmToken,
       'Вас пригласили на задание',
       `Бренд «${brandUser.fullName ?? 'Бренд'}» приглашает вас на «${task.title}»`,
       { type: 'INVITE', appId: app.id },
@@ -165,7 +165,7 @@ export class ApplicationsService {
     await this.appRepo.save(app);
 
     void this.notificationService.send(
-      app.blogger.fcmToken,
+      app.blogger?.fcmToken,
       'Заявка принята',
       `Бренд принял вашу заявку на «${app.task.title}»`,
       { type: 'APPLICATION_ACCEPTED', appId: app.id },
@@ -181,7 +181,7 @@ export class ApplicationsService {
     await this.appRepo.save(app);
 
     void this.notificationService.send(
-      app.blogger.fcmToken,
+      app.blogger?.fcmToken,
       'Заявка отклонена',
       `Ваша заявка на «${app.task.title}» была отклонена`,
       { type: 'APPLICATION_REJECTED', appId: app.id },
@@ -233,7 +233,7 @@ export class ApplicationsService {
     }
 
     void this.notificationService.send(
-      app.task.brand.fcmToken,
+      app.task.brand?.fcmToken,
       'Работа сдана',
       `${app.blogger.fullName ?? 'Блогер'} сдал работу по «${app.task.title}»`,
       { type: 'WORK_SUBMITTED', appId: app.id },
@@ -255,7 +255,7 @@ export class ApplicationsService {
     await this.appRepo.save(app);
 
     void this.notificationService.send(
-      app.blogger.fcmToken,
+      app.blogger?.fcmToken,
       'Нужна доработка',
       `Бренд запросил доработку по «${app.task.title}»`,
       { type: 'REVISION_REQUESTED', appId: app.id },
@@ -293,7 +293,7 @@ export class ApplicationsService {
       .execute();
 
     void this.notificationService.send(
-      app.blogger.fcmToken,
+      app.blogger?.fcmToken,
       'Работа принята! 🎉',
       `Бренд принял вашу работу по «${app.task.title}». Оставьте отзыв!`,
       { type: 'WORK_APPROVED', appId: app.id },
@@ -332,7 +332,7 @@ export class ApplicationsService {
         .execute();
 
       void this.notificationService.send(
-        app.blogger.fcmToken,
+        app.blogger?.fcmToken,
         'Работа автоматически принята ✅',
         `Бренд не ответил 3 дня — работа по «${app.task.title}» засчитана. Оставьте отзыв!`,
         { type: 'WORK_APPROVED', appId: app.id },
@@ -340,7 +340,7 @@ export class ApplicationsService {
       );
 
       void this.notificationService.send(
-        app.task.brand.fcmToken,
+        app.task.brand?.fcmToken,
         'Работа автоматически завершена',
         `Вы не проверили работу по «${app.task.title}» — она засчитана автоматически. Оставьте отзыв!`,
         { type: 'WORK_APPROVED', appId: app.id },
